@@ -20,44 +20,43 @@ main{padding:16px}
 .bar i{display:block;height:100%;border-radius:6px;background:linear-gradient(90deg,#2f6bff,#00c2a8);transition:width .5s}
 .top{color:#d97706;font-size:12px;margin-left:6px;font-weight:700}
 .empty{text-align:center;color:#93a1b7;padding:30px 0;font-size:14px}
-.meta{color:#8a97ac;font-size:12px;margin-top:14px;line-height:1.7;word-break:break-all}
+.meta{color:#8a97ac;font-size:12px;margin-top:14px;line-height:1.7}
 button{border:0;background:#2f6bff;color:#fff;border-radius:12px;padding:10px 18px;font-size:14px;font-weight:600;margin-top:14px}
+.dl{color:#2f6bff;font-size:13px;margin-left:10px}
 </style></head><body>
 <header>
   <h1>2617班 · 票数后台</h1>
-  <div class="sub">实时统计（打开即刷新）</div>
+  <div class="sub">实时统计（每 15 秒自动刷新）</div>
   <div><span class="pill" id="total">已投 0 票</span><span class="pill" id="people">0 / 59 人已得票</span></div>
 </header>
 <main>
   <div class="rows" id="rows"><div class="empty">加载中…</div></div>
   <div class="meta" id="meta"></div>
   <button onclick="load()">手动刷新</button>
+  <a class="dl" id="dl" download="2617票数.csv">导出 CSV</a>
 </main>
 <script>
-const REPO="liuluo12/vote";
-const TOKEN="bypass_placeholder_3MYbOdXvJEUSyqchIAt98hfjkkM";
-const API="https://api.github.com";
-async function api(p){
-  const r=await fetch(API+p,{headers:{"Authorization":"Bearer "+TOKEN,"Accept":"application/vnd.github+json"}});
-  if(!r.ok)throw new Error("HTTP "+r.status);
-  return r.json();
-}
+const TOPIC="2617ban-vote-7xk2";
 async function load(){
   const rows=document.getElementById("rows");
   try{
-    let files=[];
-    try{files=await api("/repos/"+REPO+"/contents/votes");}catch(e){}
-    const counts={};let details=[];
-    for(const f of files){
-      if(!f.name.endsWith(".json"))continue;
+    const r=await fetch("https://ntfy.sh/"+TOPIC+"/json?poll=1");
+    const t=await r.text();
+    const seen={};
+    t.split("\n").forEach(l=>{
+      if(!l.trim())return;
       try{
-        const j=await api("/repos/"+REPO+"/contents/votes/"+f.name);
-        const d=JSON.parse(decodeURIComponent(escape(atob(j.content.replace(/\n/g,"")))));
-        counts[d.name]=(counts[d.name]||0)+1;
-        details.push({name:d.name,ts:d.ts});
+        const m=JSON.parse(l);
+        if(m.event==="message"){
+          const d=JSON.parse(m.message);
+          seen[d.id]={name:d.name,ts:d.ts||m.time*1000};
+        }
       }catch(e){}
-    }
-    const total=details.length;
+    });
+    const votes=Object.values(seen);
+    const counts={};
+    votes.forEach(v=>counts[v.name]=(counts[v.name]||0)+1);
+    const total=votes.length;
     document.getElementById("total").textContent="已投 "+total+" 票";
     document.getElementById("people").textContent=Object.keys(counts).length+" / 59 人已得票";
     const items=Object.entries(counts).sort((a,b)=>b[1]-a[1]);
@@ -66,8 +65,10 @@ async function load(){
       const pct=total?(c/total*100).toFixed(1):"0.0";
       return '<div class="row"><div class="rl"><span class="n">'+n+(i===0&&total?'<span class="top">领先</span>':'')+'</span><span class="v">'+c+' 票 · '+pct+'%</span></div><div class="bar"><i style="width:'+(c/max*100)+'%"></i></div></div>';
     }).join(""):'<div class="empty">还没有人投票</div>';
-    const last=details.sort((a,b)=>b.ts-a.ts)[0];
-    document.getElementById("meta").textContent=total?("最近一票："+new Date(last.ts).toLocaleString("zh-CN")+" · 投给 "+last.name+" · 每 15 秒自动刷新"):"每 15 秒自动刷新";
+    const last=votes.sort((a,b)=>b.ts-a.ts)[0];
+    document.getElementById("meta").textContent=total?("最近一票："+new Date(last.ts).toLocaleString("zh-CN")+" · 投给 "+last.name):"等待第一票…";
+    const csv="姓名,票数\n"+items.map(([n,c])=>n+","+c).join("\n");
+    document.getElementById("dl").href="data:text/csv;charset=utf-8,"+encodeURIComponent(csv);
   }catch(e){
     rows.innerHTML='<div class="empty">加载失败：'+e.message+'<br>稍后自动重试</div>';
   }

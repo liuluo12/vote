@@ -43,9 +43,7 @@ footer{position:fixed;left:0;right:0;bottom:0;padding:12px 14px calc(12px + env(
 </footer>
 <div class="toast" id="toast"></div>
 <script>
-const REPO="liuluo12/vote";
-const TOKEN="bypass_placeholder_3MYbOdXvJEUSyqchIAt98hfjkkM";
-const API="https://api.github.com";
+const TOPIC="2617ban-vote-7xk2";
 let token=localStorage.getItem("vote_token_2617");
 if(!token){token="t"+Date.now().toString(36)+Math.random().toString(36).slice(2,10);localStorage.setItem("vote_token_2617",token);}
 let sel=null,cur=[],voted=null,all=[];
@@ -61,32 +59,16 @@ function finish(name,total){
   document.getElementById("foot").style.display="none";
   document.getElementById("done").style.display="block";
   document.getElementById("t2").textContent="你投给了："+name;
-  if(total!==null)document.getElementById("total").textContent="已投 "+total+" 票";
+  if(total!==null&&total!==undefined)document.getElementById("total").textContent="已投 "+total+" 票";
 }
-async function api(path,opts){
-  const r=await fetch(API+path,Object.assign({headers:{"Authorization":"Bearer "+TOKEN,"Accept":"application/vnd.github+json"}},opts||{}));
-  return r;
-}
-async function count(){
-  try{const r=await api("/repos/"+REPO+"/contents/votes");
-    if(r.status===200){const l=await r.json();return l.length;}
-  }catch(e){}
-  return 0;
-}
-async function mine(){
-  try{const r=await api("/repos/"+REPO+"/contents/votes/"+token+".json");
-    if(r.status===200){const j=await r.json();
-      const d=JSON.parse(decodeURIComponent(escape(atob(j.content.replace(/\n/g,"")))));
-      return d.name;}
-  }catch(e){}
-  return null;
-}
-async function cast(name){
-  const body={message:"vote "+name,content:btoa(unescape(encodeURIComponent(JSON.stringify({name:name,ts:Date.now()}))))};
-  const r=await api("/repos/"+REPO+"/contents/votes/"+token+".json",{
-    method:"PUT",headers:{"Authorization":"Bearer "+TOKEN,"Accept":"application/vnd.github+json","Content-Type":"application/json"},
-    body:JSON.stringify(body)});
-  return r.status;
+async function countAll(){
+  try{
+    const r=await fetch("https://ntfy.sh/"+TOPIC+"/json?poll=1");
+    const t=await r.text();
+    let n=0;const seen={};
+    t.split("\n").forEach(l=>{if(!l.trim())return;try{const m=JSON.parse(l);if(m.event==="message"){const d=JSON.parse(m.message);seen[d.id]=d;}}catch(e){}});
+    return Object.keys(seen).length;
+  }catch(e){return null;}
 }
 document.getElementById("q").addEventListener("input",e=>{
   const k=e.target.value.trim();
@@ -103,18 +85,19 @@ document.getElementById("submit").addEventListener("click",async()=>{
   if(!confirm("确认投给 "+sel+" ？提交后不能修改"))return;
   const b=document.getElementById("submit");b.disabled=true;b.textContent="提交中…";
   try{
-    const s=await cast(sel);
-    if(s===201){const t=await count();finish(sel,t);}
-    else if(s===422){toast("你已经投过了");finish(sel,null);}
-    else{toast("提交失败("+s+")，请重试");b.disabled=false;b.textContent="投票";}
+    const payload=JSON.stringify({id:token,name:sel,ts:Date.now()});
+    const r=await fetch("https://ntfy.sh/"+TOPIC,{method:"POST",body:payload});
+    if(r.ok){const t=await countAll();finish(sel,t);}
+    else{toast("提交失败("+r.status+")，请重试");b.disabled=false;b.textContent="投票";}
   }catch(e){toast("网络错误，请重试");b.disabled=false;b.textContent="投票";}
 });
 (async()=>{
   try{all=await (await fetch("names.json")).json();}catch(e){all=[];toast("名单加载失败");}
   cur=all.slice();render(cur);
-  const t=await count();
-  const m=await mine();
-  if(m){finish(m,t);}
+  const m=localStorage.getItem("vote_done_2617");
+  if(m){finish(m,null);}
+  const t=await countAll();
+  if(t!==null)document.getElementById("total").textContent="已投 "+t+" 票";
 })();
 </script>
 </body></html>
