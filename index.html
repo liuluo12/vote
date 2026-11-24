@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="zh-CN"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>2617班 · 投票</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;font:16px/1.5 -apple-system,"PingFang SC","Noto Sans CJK SC",system-ui,sans-serif;background:#f2f4f8;color:#16202e;padding-bottom:96px}
+header{background:linear-gradient(135deg,#2f6bff,#00c2a8);color:#fff;padding:26px 20px 22px;border-radius:0 0 22px 22px;box-shadow:0 6px 18px rgba(47,107,255,.25)}
+h1{margin:0;font-size:21px;letter-spacing:.5px}
+.sub{margin-top:6px;font-size:13px;opacity:.92}
+.pill{display:inline-block;margin-top:12px;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.35);border-radius:999px;padding:4px 12px;font-size:13px}
+.wrap{padding:14px 14px 0}
+.search{width:100%;border:0;border-radius:14px;padding:12px 14px;font-size:15px;background:#fff;box-shadow:0 2px 8px rgba(20,40,80,.06);outline:none}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin:14px 0 4px}
+@media(max-width:360px){.grid{grid-template-columns:repeat(2,1fr)}}
+.card{background:#fff;border:2px solid transparent;border-radius:14px;padding:14px 4px;text-align:center;font-size:15px;font-weight:600;color:#1b2a41;box-shadow:0 1px 4px rgba(20,40,80,.06);transition:.15s;cursor:pointer;user-select:none}
+.card:active{transform:scale(.96)}
+.card.on{border-color:#2f6bff;background:#eef3ff;color:#1a4fd6;box-shadow:0 4px 14px rgba(47,107,255,.28)}
+.card .idx{display:block;font-size:11px;font-weight:400;color:#9aa7bd;margin-top:2px}
+footer{position:fixed;left:0;right:0;bottom:0;padding:12px 14px calc(12px + env(safe-area-inset-bottom));background:rgba(255,255,255,.94);border-top:1px solid #e6eaf2;display:flex;align-items:center;gap:10px}
+.sel{flex:1;font-size:14px;color:#5b6b84}.sel b{color:#16202e;font-size:16px}
+.btn{border:0;border-radius:14px;padding:14px 22px;font-size:16px;font-weight:700;color:#fff;background:linear-gradient(135deg,#2f6bff,#00a6ff);box-shadow:0 6px 16px rgba(47,107,255,.35)}
+.btn:disabled{background:#c9d3e4;box-shadow:none;color:#f4f7fc}
+#done{display:none;text-align:center;padding:34px 20px}
+.big{font-size:52px;margin:0 0 10px}
+.thanks{font-size:18px;font-weight:700;color:#00a878}
+.t2{color:#5b6b84;font-size:14px;margin-top:6px}
+.toast{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);background:rgba(20,30,50,.9);color:#fff;padding:12px 20px;border-radius:12px;font-size:15px;opacity:0;transition:.25s;pointer-events:none;z-index:9}
+</style></head><body>
+<header>
+  <h1>2617班 · 投票</h1>
+  <div class="sub">请从名单中选出 1 人（单选，一人一票）</div>
+  <div class="pill" id="total">已投 0 票</div>
+</header>
+<div id="vote"><div class="wrap">
+  <input class="search" id="q" placeholder="搜索姓名…" autocomplete="off">
+  <div class="grid" id="grid"></div>
+</div></div>
+<div id="done"><div class="big">🎉</div><div class="thanks" id="thanks">投票成功</div><div class="t2" id="thanks2"></div><div class="t2" id="thanks3">感谢你的参与</div></div>
+<footer id="foot">
+  <div class="sel" id="sel">请选择一个人</div>
+  <button class="btn" id="submit" disabled>投票</button>
+</footer>
+<div class="toast" id="toast"></div>
+<script>
+const NAMES=["毛无忧","饶佳喜","汪悦","王紫倩","黄栎朗","卢淑贤","宛嘉龙","吕良森","夏博","邓涵林","商小慧","程镇东","刘俊熙","占戢涵","钱志宏","马源","毛凌微","李诗晨","胡清泉","徐萍","俞培程","刘菲菲","余建涛","王亚伦","余祖义","李智琴","费立果","陈程胜","吴佳欣","卢棋顺","汪思彤","张婧","张静怡","卢怡翔","沈诗晨","袁梦婷","胡锦林","邓启明","陈向楠","张可欣","陈坤","朱思雅","鲁盼盼","曹欣雨","余志玲","胡景清","蒋德平","梁均浩","何嘉文","梅浩峰","帅婉婷","熊佳坤","陈海涛","汪萧琦","蔡安娜","吕欣宸","洪震宇","胡皓","吴子羽"];
+const TOKEN_KEY='vote_token_2617';
+const DONE_KEY='vote_done_2617';
+let token=localStorage.getItem(TOKEN_KEY);
+if(!token){token='t'+Date.now().toString(36)+Math.random().toString(36).slice(2,10);localStorage.setItem(TOKEN_KEY,token);}
+let sel=null,cur=NAMES.slice();
+const grid=document.getElementById('grid');
+function render(list){
+  grid.innerHTML=list.length?list.map(n=>'<div class="card" data-n="'+n+'">'+n+'<span class="idx">'+(NAMES.indexOf(n)+1)+'</span></div>').join(''):'<div style="grid-column:1/-1;text-align:center;color:#93a1b7;padding:26px">没有匹配的姓名</div>';
+  [].forEach.call(grid.querySelectorAll('.card'),function(d){if(d.dataset.n===sel)d.classList.add('on');});
+}
+render(cur);
+grid.addEventListener('click',function(e){
+  const d=e.target.closest('.card'); if(!d)return;
+  sel=d.dataset.n; render(cur);
+  document.getElementById('sel').innerHTML='已选：<b>'+sel+'</b>';
+  document.getElementById('submit').disabled=false;
+});
+document.getElementById('q').addEventListener('input',function(e){
+  const k=e.target.value.trim().toUpperCase();
+  cur=k?NAMES.filter(function(n){return n.toUpperCase().indexOf(k)>=0;}):NAMES.slice();
+  render(cur);
+});
+function toast(t){var el=document.getElementById('toast');el.textContent=t;el.style.opacity=1;setTimeout(function(){el.style.opacity=0;},1600);}
+function finish(name,total){
+  localStorage.setItem(DONE_KEY,name);
+  document.getElementById('vote').style.display='none';
+  document.getElementById('foot').style.display='none';
+  document.getElementById('done').style.display='block';
+  document.getElementById('thanks2').textContent='你投给了：'+name;
+  if(total)document.getElementById('total').textContent='已投 '+total+' 票';
+}
+var votedNow=localStorage.getItem(DONE_KEY);
+if(votedNow){finish(votedNow,0);}
+document.getElementById('submit').addEventListener('click',function(){
+  if(!sel||localStorage.getItem(DONE_KEY))return;
+  if(!confirm('确认投给 '+sel+' ？提交后不能修改'))return;
+  var btn=document.getElementById('submit');btn.disabled=true;btn.textContent='提交中…';
+  var url='vote.php?name='+encodeURIComponent(sel)+'&token='+encodeURIComponent(token)+'&r='+Math.random();
+  fetch(url).then(function(r){return r.json();}).then(function(j){
+    if(j.ok||j.reason==='voted'){finish(j.name||sel,j.total);}
+    else{toast(j.msg||'投票失败');btn.disabled=false;btn.textContent='投票';}
+  }).catch(function(){toast('网络错误，请重试');btn.disabled=false;btn.textContent='投票';});
+});
+if(!votedNow){
+  fetch('vote.php?status=1&r='+Math.random()).then(function(r){return r.json();}).then(function(j){
+    if(j.total!==undefined)document.getElementById('total').textContent='已投 '+j.total+' 票';
+  }).catch(function(){});
+}
+</script>
+</body></html>
