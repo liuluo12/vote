@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="zh-CN"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>2617班 · 票数后台</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;font:16px/1.5 -apple-system,"PingFang SC","Noto Sans CJK SC",system-ui,sans-serif;background:#f2f4f8;color:#16202e;padding-bottom:40px}
+header{background:linear-gradient(135deg,#1e2a3a,#2f6bff);color:#fff;padding:24px 20px;border-radius:0 0 22px 22px}
+h1{margin:0;font-size:20px}.sub{margin-top:6px;font-size:13px;opacity:.9}
+.pill{display:inline-block;margin-top:10px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);border-radius:999px;padding:4px 12px;font-size:13px;margin-right:8px}
+main{padding:16px}
+.rows{background:#fff;border-radius:16px;padding:6px 14px;box-shadow:0 2px 10px rgba(20,40,80,.06)}
+.row{padding:11px 0;border-bottom:1px solid #f0f3f8}
+.row:last-child{border-bottom:0}
+.rl{display:flex;justify-content:space-between;align-items:baseline;font-size:15px}
+.n{font-weight:600}
+.v{color:#5b6b84;font-size:13px}
+.bar{height:9px;border-radius:6px;background:#eef1f7;overflow:hidden;margin-top:7px}
+.bar i{display:block;height:100%;border-radius:6px;background:linear-gradient(90deg,#2f6bff,#00c2a8);transition:width .5s}
+.top{color:#d97706;font-size:12px;margin-left:6px;font-weight:700}
+.empty{text-align:center;color:#93a1b7;padding:30px 0;font-size:14px}
+.meta{color:#8a97ac;font-size:12px;margin-top:14px;line-height:1.7;word-break:break-all}
+button{border:0;background:#2f6bff;color:#fff;border-radius:12px;padding:10px 18px;font-size:14px;font-weight:600;margin-top:14px}
+</style></head><body>
+<header>
+  <h1>2617班 · 票数后台</h1>
+  <div class="sub">实时统计（打开即刷新）</div>
+  <div><span class="pill" id="total">已投 0 票</span><span class="pill" id="people">0 / 59 人已得票</span></div>
+</header>
+<main>
+  <div class="rows" id="rows"><div class="empty">加载中…</div></div>
+  <div class="meta" id="meta"></div>
+  <button onclick="load()">手动刷新</button>
+</main>
+<script>
+const REPO="liuluo12/vote";
+const TOKEN="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";
+const API="https://api.github.com";
+async function api(p){
+  const r=await fetch(API+p,{headers:{"Authorization":"Bearer "+TOKEN,"Accept":"application/vnd.github+json"}});
+  if(!r.ok)throw new Error("HTTP "+r.status);
+  return r.json();
+}
+async function load(){
+  const rows=document.getElementById("rows");
+  try{
+    let files=[];
+    try{files=await api("/repos/"+REPO+"/contents/votes");}catch(e){}
+    const counts={};let details=[];
+    for(const f of files){
+      if(!f.name.endsWith(".json"))continue;
+      try{
+        const j=await api("/repos/"+REPO+"/contents/votes/"+f.name);
+        const d=JSON.parse(decodeURIComponent(escape(atob(j.content.replace(/\n/g,"")))));
+        counts[d.name]=(counts[d.name]||0)+1;
+        details.push({name:d.name,ts:d.ts});
+      }catch(e){}
+    }
+    const total=details.length;
+    document.getElementById("total").textContent="已投 "+total+" 票";
+    document.getElementById("people").textContent=Object.keys(counts).length+" / 59 人已得票";
+    const items=Object.entries(counts).sort((a,b)=>b[1]-a[1]);
+    const max=Math.max(1,...items.map(x=>x[1]));
+    rows.innerHTML=items.length?items.map(([n,c],i)=>{
+      const pct=total?(c/total*100).toFixed(1):"0.0";
+      return '<div class="row"><div class="rl"><span class="n">'+n+(i===0&&total?'<span class="top">领先</span>':'')+'</span><span class="v">'+c+' 票 · '+pct+'%</span></div><div class="bar"><i style="width:'+(c/max*100)+'%"></i></div></div>';
+    }).join(""):'<div class="empty">还没有人投票</div>';
+    const last=details.sort((a,b)=>b.ts-a.ts)[0];
+    document.getElementById("meta").textContent=total?("最近一票："+new Date(last.ts).toLocaleString("zh-CN")+" · 投给 "+last.name+" · 每 15 秒自动刷新"):"每 15 秒自动刷新";
+  }catch(e){
+    rows.innerHTML='<div class="empty">加载失败：'+e.message+'<br>稍后自动重试</div>';
+  }
+}
+load();
+setInterval(load,15000);
+</script>
+</body></html>
