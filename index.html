@@ -40,6 +40,7 @@ footer{position:fixed;left:0;right:0;bottom:0;padding:12px 14px calc(12px + env(
 button.act{border:0;background:#2f6bff;color:#fff;border-radius:12px;padding:10px 18px;font-size:14px;font-weight:600;margin-top:14px}
 button.clear{background:#e5484d}
 a.dl{color:#2f6bff;font-size:13px;margin-left:10px;text-decoration:none}
+.dev{color:#93a1b7;font-size:11px;line-height:1.7;padding:16px 16px 0;word-break:break-all}
 .toast{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);background:rgba(20,30,50,.9);color:#fff;padding:12px 20px;border-radius:12px;font-size:15px;opacity:0;transition:.25s;pointer-events:none;z-index:9}
 
 body{padding-bottom:96px}
@@ -58,16 +59,25 @@ body{padding-bottom:96px}
   <div class="sel" id="sel">请选择一个人</div>
   <button class="btn" id="submit" disabled>投票</button>
 </footer>
+<div class="dev" id="dev"></div>
 <div class="toast" id="toast"></div>
 <script>
 var BASE="2617vote-", CTL="2617vote-ctl";
-function fpId(){
-  var ua=(navigator.userAgent||"").replace(/\/[0-9.]+/g,"").replace(/\([^)]*\)/g,"")
+var FPPARTS=[];
+function uaBase(){
+  return (navigator.userAgent||"").replace(/\/[0-9.]+/g,"").replace(/\([^)]*\)/g,"")
     .replace(/Chrome|Chromium|Firefox|Safari|Edg[A-Za-z]*|OPR|Opera|MicroMessenger|QQBrowser|UCBrowser|Mobile|Android|Linux|Windows|iPhone|iPad|Macintosh|wv|;|\s/gi,"");
-  var parts=[ua,screen.width+"x"+screen.height,navigator.hardwareConcurrency||0,navigator.deviceMemory||0,navigator.maxTouchPoints||0];
-  var raw=parts.join("|"),h=5381,i;
+}
+function fpId(){
+  var ua=uaBase();
+  FPPARTS=[ua,screen.width+"x"+screen.height,navigator.hardwareConcurrency||0,navigator.deviceMemory||0,navigator.maxTouchPoints||0];
+  var raw=FPPARTS.join("|"),h=5381,i;
   for(i=0;i<raw.length;i++)h=((h*33)^raw.charCodeAt(i))>>>0;
   return "d"+h.toString(36);
+}
+function devLine(){
+  if(!FPPARTS.length)fpId();
+  return "设备号 "+deviceId()+" ｜ UA特征 "+(FPPARTS[0]||"-")+" ｜ 屏幕 "+FPPARTS[1]+" ｜ "+(navigator.hardwareConcurrency||"?")+"核 ｜ 内存 "+(navigator.deviceMemory||"?")+"GB ｜ 触屏 "+(navigator.maxTouchPoints||0);
 }
 function deviceId(){
   var k="vote_devid_2617_v5";
@@ -166,6 +176,7 @@ function boot(){
   ]).then(function(res){
     all=(res[0]||[]).filter(function(x){return typeof x==="string"&&x.trim()&&x.trim()!=="undefined";}).map(function(x){return x.trim();});
     cur=all.slice();render(cur);
+    $("dev").textContent=devLine();
     topic=res[1];
     if(!topic){toast("投票尚未开始");return;}
     refresh();
