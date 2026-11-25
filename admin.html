@@ -53,7 +53,7 @@ h2{font-size:15px;margin:20px 0 8px;color:#5b6b84}
 <header>
   <h1>2617班 · 票数后台</h1>
   <div class="sub">匿名口令投票 · 每 15 秒自动刷新</div>
-  <div><span class="pill" id="total">已投 0 票</span><span class="pill" id="left">剩余口令 59</span></div>
+  <div><span class="pill" id="total">已投 0 票</span><span class="pill" id="left">剩余口令 59</span><span class="pill" id="dev">0 台设备</span></div>
 </header>
 <main>
   <h2>得票排行</h2>
@@ -100,7 +100,7 @@ function readVotes(topic){
           if(!d||typeof d!=="object")return;
           if(d.event==="reset")return;
           if(!d.h||!d.name||d.name==="undefined"||d.h==="undefined")return;
-          if(!seen[d.h]){seen[d.h]={h:d.h,name:d.name,ts:d.ts||m.time*1000};order.push(seen[d.h]);}
+          if(!seen[d.h]){seen[d.h]={h:d.h,name:d.name,ts:d.ts||m.time*1000,dv:d.dv||"",dup:d.dup||0};order.push(seen[d.h]);}
         }catch(e){}
       });
       return order;
@@ -127,7 +127,14 @@ function render(v){
     var pct=total?(x[1]/total*100).toFixed(1):"0.0";
     return '<div class="row"><div class="rl"><span class="n">'+x[0]+(i===0?'<span class="top">领先</span>':'')+'</span><span class="v">'+x[1]+' 票 · '+pct+'%</span></div><div class="bar"><i style="width:'+(x[1]/max*100)+'%"></i></div></div>';
   }).join(""):'<div class="empty">还没有人投票</div>';
-  $("note").innerHTML="已使用口令 <b>"+total+"</b> 个，还剩 <b>"+(totalCodes-total>0?totalCodes-total:0)+"</b> 个未使用。<br>匿名投票：系统只记录口令，<b>不记录谁投了谁</b>，所以看不到“谁还没投”。";
+  var devCount={},uniq=0;
+  v.forEach(function(x){ if(x.dv){ if(!devCount[x.dv]){devCount[x.dv]=[];uniq++;} devCount[x.dv].push(x.name); } });
+  $("dev").textContent=uniq+" 台设备";
+  var dupList=Object.keys(devCount).filter(function(k){return devCount[k].length>1;});
+  var dupHtml=dupList.length
+    ? "<div style='color:#e5484d;margin-top:8px'><b>⚠ 检测到同一台设备多次投票：</b><br>"+dupList.map(function(k){return "设备 "+k+" → "+devCount[k].join("、")+"（"+devCount[k].length+" 票）";}).join("<br>")+"</div>"
+    : "<div style='color:#00a878;margin-top:8px'>✅ 未发现同一设备重复投票（按设备指纹判断，仅供参考）</div>";
+  $("note").innerHTML="已使用口令 <b>"+total+"</b> 个，还剩 <b>"+(totalCodes-total>0?totalCodes-total:0)+"</b> 个未使用。<br>匿名投票：系统只记录口令，<b>不记录谁投了谁</b>，所以看不到“谁还没投”。<br>"+dupHtml;
   var last=v.slice().sort(function(a,b){return b.ts-a.ts;})[0];
   $("meta").textContent=(last?("最近一票："+new Date(last.ts).toLocaleString("zh-CN")+" · 投给 "+last.name):"等待第一票…")+"　|　轮次："+topic;
   $("dl").href="data:text/csv;charset=utf-8,"+encodeURIComponent("姓名,票数\n"+items.map(function(x){return x[0]+","+x[1];}).join("\n")+"\n\n已用口令,"+total+"\n剩余口令,"+(totalCodes-total));
