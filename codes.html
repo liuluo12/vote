@@ -75,7 +75,7 @@ function fetchCloud(){
   return fetch("https://ntfy.sh/"+TOPIC+"/json?poll=1&since=all&x="+Date.now(),{cache:"no-store"})
     .then(function(r){return r.text();})
     .then(function(t){
-      var out={resetTs:0,votes:[],names:null,title:"",sub:""},seen={};
+      var out={resetTs:0,votes:[],names:null,title:"",sub:"",codes:null},seen={};
       t.split("\n").forEach(function(l){
         if(!l.trim())return;
         var m,d;
@@ -86,6 +86,7 @@ function fetchCloud(){
         if(d.event==="reset"){out.resetTs=Math.max(out.resetTs,d.ts||0);return;}
         if(d.event==="names"&&Array.isArray(d.list)&&d.list.length)out.names=d.list;
         if(d.event==="config"){if(typeof d.title==="string")out.title=d.title;if(typeof d.sub==="string")out.sub=d.sub;}
+        if(d.event==="codes"&&Array.isArray(d.list)&&d.list.length)out.codes=d.list;
       });
       t.split("\n").forEach(function(l){
         if(!l.trim())return;
@@ -124,13 +125,14 @@ function effective(){
       round:String(round),
       votes:order,
       names:(cloud.names&&cloud.names.length?cloud.names:(bk.names&&bk.names.length?bk.names:null)),
+      codes:(cloud.codes&&cloud.codes.length?cloud.codes:(bk.codes&&bk.codes.length?bk.codes:null)),
       title:(cloud.title||bk.title||""),
       sub:(cloud.sub||bk.sub||"")
     };
   }).catch(function(){return {round:"0",votes:[],names:null,title:"",sub:""};});
 }
 function loadState(){
-  return effective().then(function(e){return {round:e.round,title:e.title,sub:e.sub,names:e.names};});
+  return effective().then(function(e){return {round:e.round,title:e.title,sub:e.sub,names:e.names,codes:e.codes};});
 }
 function readVotes(){return effective().then(function(e){return e.votes;});}
 function activeTopic(){return Promise.resolve(TOPIC);}
@@ -193,7 +195,7 @@ function $(i){return document.getElementById(i);}
 function hashOf(c){return sha256hex(c);}
 function claim(card,code){
   card.classList.add("pick");
-  setTimeout(function(){location.href="index.html?v=21&c="+encodeURIComponent(code);},120);
+  setTimeout(function(){location.href="index.html?v=22&c="+encodeURIComponent(code);},120);
 }
 function render(){
   var pool=$("pool");
@@ -221,12 +223,14 @@ function refresh(){
 function boot(){
   loadState().then(function(st){
     topic=topicFromState(st);
+    if(st&&st.codes&&st.codes.length){CODES=st.codes.slice();render();}
     try{if(st&&st.title)$("wtl").textContent=st.title+" · 口令墙";}catch(e){}
     refresh();
     setInterval(function(){
       loadState().then(function(st2){
         var t2=topicFromState(st2);
         if(t2!==topic){topic=t2;}
+        if(st2&&st2.codes&&st2.codes.length&&st2.codes.join()!==CODES.join()){CODES=st2.codes.slice();render();}
         refresh();
       }).catch(function(){});
     },8000);
