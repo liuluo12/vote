@@ -43,18 +43,19 @@ footer{position:fixed;left:0;right:0;bottom:0;padding:12px 14px calc(12px + env(
 </footer>
 <div class="toast" id="toast"></div>
 <script>
-const TOPIC="2617vote-95c48b82f6ca";
-let token=localStorage.getItem("vote_token_2617_r3");
-if(!token){token="t"+Date.now().toString(36)+Math.random().toString(36).slice(2,10);localStorage.setItem("vote_token_2617_r3",token);}
+const TOPIC="2617vote-4e9fe73a131a";
+let token=localStorage.getItem("vote_token_2617_r4");
+if(!token){token="t"+Date.now().toString(36)+Math.random().toString(36).slice(2,10);localStorage.setItem("vote_token_2617_r4",token);}
 let sel=null,cur=[],voted=null,all=[];
 const grid=document.getElementById("grid");
 function toast(t){const e=document.getElementById("toast");e.textContent=t;e.style.opacity=1;setTimeout(()=>e.style.opacity=0,1600);}
 function render(list){
+  list=list.filter(function(x){return x&&x!=="undefined";});
   grid.innerHTML=list.length?list.map(n=>'<div class="card" data-n="'+n+'">'+n+'<span class="idx">'+(all.indexOf(n)+1)+'</span></div>').join(""):'<div style="grid-column:1/-1;text-align:center;color:#93a1b7;padding:26px">没有匹配的姓名</div>';
   [].forEach.call(grid.querySelectorAll(".card"),d=>{if(d.dataset.n===sel)d.classList.add("on");});
 }
 function finish(name,total){
-  voted=name;localStorage.setItem("vote_done_2617_r3",name);
+  voted=name;localStorage.setItem("vote_done_2617_r4",name);
   document.getElementById("vote").style.display="none";
   document.getElementById("foot").style.display="none";
   document.getElementById("done").style.display="block";
@@ -93,8 +94,10 @@ document.getElementById("submit").addEventListener("click",async()=>{
 });
 (async()=>{
   try{all=await (await fetch("names.json")).json();}catch(e){all=[];toast("名单加载失败");}
+  if(!Array.isArray(all))all=[];
+  all=all.filter(function(x){return typeof x==="string"&&x.trim()!==""&&x.trim()!=="undefined"&&x.trim()!=="null";}).map(function(x){return x.trim();});
   cur=all.slice();render(cur);
-  const m=localStorage.getItem("vote_done_2617_r3");
+  const m=localStorage.getItem("vote_done_2617_r4");
   if(m){finish(m,null);}
   const t=await countAll();
   if(t!==null)document.getElementById("total").textContent="已投 "+t+" 票";
