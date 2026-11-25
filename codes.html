@@ -62,6 +62,7 @@ box-shadow:0 1px 4px rgba(20,40,80,.06);cursor:pointer;transition:.18s}
 .warn{background:#fff6e6;color:#a8570a;border-radius:12px;margin:0 14px 12px;padding:10px 12px;font-size:12px;line-height:1.7}
 </style></head><body>
 <div class="top">
+  <div class="mini" id="wtl" style="font-size:12px;color:#93a1b7;margin:0 4px 6px">口令领取墙</div>
   <div class="big"><b id="left">59</b><span>个口令还没人用</span></div>
   <div class="used" id="usedline"></div>
   <div class="warn">点一个还有效的口令 → 自动进入投票页。用掉后这张卡会消失，刷新不影响。</div>
@@ -125,6 +126,15 @@ function byName(votes){
   return c;
 }
 
+function loadState(){
+  return fetch("state.json?x="+Date.now(),{cache:"no-store"})
+    .then(function(r){return r.ok?r.json():null;})
+    .catch(function(){return null;});
+}
+function topicFromState(st){
+  return "2617vote-"+((st&&st.round)?st.round:"default");
+}
+
 function sha256hex(ascii){
   function rightRotate(v,a){return (v>>>a)|(v<<(32-a));}
   var mathPow=Math.pow,maxWord=mathPow(2,32),result="",words=[],asciiBitLength=ascii.length*8;
@@ -173,7 +183,7 @@ function $(i){return document.getElementById(i);}
 function hashOf(c){return sha256hex(c);}
 function claim(card,code){
   card.classList.add("pick");
-  setTimeout(function(){location.href="index.html?v=18&c="+encodeURIComponent(code);},120);
+  setTimeout(function(){location.href="index.html?v=19&c="+encodeURIComponent(code);},120);
 }
 function render(){
   var pool=$("pool");
@@ -199,9 +209,17 @@ function refresh(){
   }).catch(function(){});
 }
 function boot(){
-  activeTopic().then(function(t){
-    topic=t;refresh();
-    setInterval(refresh,8000);
+  loadState().then(function(st){
+    topic=topicFromState(st);
+    try{if(st&&st.title)$("wtl").textContent=st.title+" · 口令墙";}catch(e){}
+    refresh();
+    setInterval(function(){
+      loadState().then(function(st2){
+        var t2=topicFromState(st2);
+        if(t2!==topic){topic=t2;}
+        refresh();
+      }).catch(function(){});
+    },8000);
   }).catch(function(){$("pool").innerHTML='<div class="note">加载失败，请刷新页面</div>';});
 }
 try{boot();}catch(e){$("pool").innerHTML='<div class="note">初始化失败：'+e.message+'</div>';}
