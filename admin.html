@@ -46,20 +46,18 @@ a.dl{color:#2f6bff;font-size:13px;margin-left:10px;text-decoration:none}
 header{background:linear-gradient(135deg,#1e2a3a,#2f6bff)}
 main{padding:16px}
 h2{font-size:15px;margin:20px 0 8px;color:#5b6b84}
-.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
-.chip{background:#fff;border-radius:8px;padding:4px 9px;font-size:13px;color:#3a4a63;box-shadow:0 1px 3px rgba(20,40,80,.06)}
-.chip.ok{background:#e7f7ef;color:#0a7a4f}
+.note{background:#fff;border-radius:12px;padding:12px 14px;font-size:13px;color:#5b6b84;line-height:1.7;box-shadow:0 1px 4px rgba(20,40,80,.06)}
 </style></head><body>
 <header>
   <h1>2617班 · 票数后台</h1>
-  <div class="sub">每 15 秒自动刷新</div>
-  <div><span class="pill" id="total">已投 0 票</span><span class="pill" id="people">0 人已投票</span></div>
+  <div class="sub">匿名口令投票 · 每 15 秒自动刷新</div>
+  <div><span class="pill" id="total">已投 0 票</span><span class="pill" id="left">剩余口令 59</span></div>
 </header>
 <main>
   <h2>得票排行</h2>
   <div class="rows" id="rows"><div class="empty">加载中…</div></div>
-  <h2>投票进度 <span id="prog" style="font-weight:400;color:#93a1b7"></span></h2>
-  <div class="chips" id="chips"></div>
+  <h2>投票情况</h2>
+  <div class="note" id="note"></div>
   <div class="meta" id="meta"></div>
   <button class="act" id="reload">手动刷新</button>
   <a class="dl" id="dl" download="2617票数.csv">导出 CSV</a>
@@ -99,8 +97,8 @@ function readVotes(topic){
           var d=JSON.parse(m.message);
           if(!d||typeof d!=="object")return;
           if(d.event==="reset")return;
-          if(!d.voter||!d.name||d.name==="undefined"||d.voter==="undefined")return;
-          if(!seen[d.voter]){seen[d.voter]={voter:d.voter,name:d.name,ts:d.ts||m.time*1000};order.push(seen[d.voter]);}
+          if(!d.h||!d.name||d.name==="undefined"||d.h==="undefined")return;
+          if(!seen[d.h]){seen[d.h]={h:d.h,name:d.name,ts:d.ts||m.time*1000};order.push(seen[d.h]);}
         }catch(e){}
       });
       return order;
@@ -115,57 +113,42 @@ function byName(votes){
   return c;
 }
 
-var topic=null,all=[];
+var topic=null,totalCodes=59;
 function $(i){return document.getElementById(i);}
-function loadAll(){
-  return fetch("names.json?x="+Date.now()).then(function(r){return r.json();}).catch(function(){return [];});
-}
 function render(v){
   var counts=byName(v),total=v.length;
   $("total").textContent="已投 "+total+" 票";
-  $("people").textContent=total+" 人已投票";
+  $("left").textContent="剩余口令 "+(totalCodes-total>0?totalCodes-total:0);
   var items=Object.keys(counts).map(function(k){return [k,counts[k]];}).sort(function(a,b){return b[1]-a[1];});
   var max=items.length?items[0][1]:1;
   $("rows").innerHTML=items.length?items.map(function(x,i){
     var pct=total?(x[1]/total*100).toFixed(1):"0.0";
     return '<div class="row"><div class="rl"><span class="n">'+x[0]+(i===0?'<span class="top">领先</span>':'')+'</span><span class="v">'+x[1]+' 票 · '+pct+'%</span></div><div class="bar"><i style="width:'+(x[1]/max*100)+'%"></i></div></div>';
   }).join(""):'<div class="empty">还没有人投票</div>';
-  var voted={};v.forEach(function(x){voted[x.voter]=x.name;});
-  var notYet=all.filter(function(n){return !voted[n];});
-  $("prog").textContent="　已投 "+total+" / "+all.length+" 人";
-  var html="";
-  all.forEach(function(n){
-    html+=voted[n]?'<span class="chip ok">'+n+' ✓</span>':'<span class="chip">'+n+'</span>';
-  });
-  $("chips").innerHTML=html;
+  $("note").innerHTML="已使用口令 <b>"+total+"</b> 个，还剩 <b>"+(totalCodes-total>0?totalCodes-total:0)+"</b> 个未使用。<br>匿名投票：系统只记录口令，<b>不记录谁投了谁</b>，所以看不到“谁还没投”。";
   var last=v.slice().sort(function(a,b){return b.ts-a.ts;})[0];
-  $("meta").textContent=(last?("最近一票："+new Date(last.ts).toLocaleString("zh-CN")+" · "+last.voter+" 投给 "+last.name):"等待第一票…")+"　|　还没投票："+(notYet.length?notYet.join("、"):"无")+"　|　轮次："+topic;
-  $("dl").href="data:text/csv;charset=utf-8,"+encodeURIComponent("姓名,票数\n"+items.map(function(x){return x[0]+","+x[1];}).join("\n")+"\n\n已投票,"+Object.keys(voted).join(" ")+"\n未投票,"+notYet.join(" "));
+  $("meta").textContent=(last?("最近一票："+new Date(last.ts).toLocaleString("zh-CN")+" · 投给 "+last.name):"等待第一票…")+"　|　轮次："+topic;
+  $("dl").href="data:text/csv;charset=utf-8,"+encodeURIComponent("姓名,票数\n"+items.map(function(x){return x[0]+","+x[1];}).join("\n")+"\n\n已用口令,"+total+"\n剩余口令,"+(totalCodes-total));
 }
 function load(){
   activeTopic().then(function(t){
     topic=t;
     if(!t){$("rows").innerHTML='<div class="empty">投票尚未开始</div>';return null;}
-    return Promise.all([readVotes(t),all.length?Promise.resolve(all):loadAll()]);
-  }).then(function(res){
-    if(!res)return;
-    all=res[1];render(res[0]);
-  }).catch(function(){$("rows").innerHTML='<div class="empty">加载失败，稍后自动重试</div>';});
+    return readVotes(t);
+  }).then(function(v){if(v)render(v);})
+   .catch(function(){$("rows").innerHTML='<div class="empty">加载失败，稍后自动重试</div>';});
 }
 $("reload").onclick=load;
 $("clear").onclick=function(){
   var b=this;
-  if(!confirm("清空后所有票数归零，之前投的票不能找回。确定清空吗？"))return;
+  if(!confirm("清空后所有票数归零，已用的口令也会作废。确定清空吗？"))return;
   if(!confirm("再确认一次：真的要清空本轮投票数据？"))return;
   b.disabled=true;b.textContent="清空中…";
   post(CTL,{event:"reset",ts:Date.now()}).then(function(r){
-    if(!r.ok)throw new Error(r.status);
-    return activeTopic();
-  }).then(function(t){
-    topic=t;
-    alert("已清空！\n\n投票页 15 秒内自动切到新一轮，同学们可以重新投票。\n新轮次："+t);
-    load();
-  }).catch(function(e){alert("清空失败："+e.message);}).then(function(){b.disabled=false;b.textContent="清空投票数据";});
+    if(!r.ok)throw new Error(r.status);return activeTopic();
+  }).then(function(t){topic=t;alert("已清空！投票页 15 秒内自动切到新一轮。\n新轮次："+t);load();})
+   .catch(function(e){alert("清空失败："+e.message);})
+   .then(function(){b.disabled=false;b.textContent="清空投票数据";});
 };
 load();
 setInterval(load,15000);
