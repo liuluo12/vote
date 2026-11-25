@@ -69,70 +69,59 @@ box-shadow:0 1px 4px rgba(20,40,80,.06);cursor:pointer;transition:.18s}
 </div>
 <div class="pool" id="pool"><div class="note">加载中…</div></div>
 <div class="note" id="meta"></div>
-<script>
-var BASE="2617vote-", CTL="2617vote-ctl";
-
-function ctlLatest(){
-  return fetch("https://ntfy.sh/"+CTL+"/json?poll=1&since=all&x="+Date.now(),{cache:"no-store"})
+<script>var TOPIC="2617vote-2617";
+function fetchAll(){
+  return fetch("https://ntfy.sh/"+TOPIC+"/json?poll=1&since=all&x="+Date.now(),{cache:"no-store"})
     .then(function(r){return r.text();})
     .then(function(t){
-      var out={reset:null,names:null,title:"",sub:""};
+      var out={resetTs:0,votes:[],names:null,title:"",sub:""};
+      var seen={};
       t.split("\n").forEach(function(l){
         if(!l.trim())return;
-        try{
-          var m=JSON.parse(l);
-          if(m.event!=="message"||!m.message)return;
-          var d=JSON.parse(m.message);
-          if(d.event==="reset"&&m.id)out.reset=m.id;
-          if(d.event==="names"&&Array.isArray(d.list)&&d.list.length)out.names=d.list;
-          if(d.event==="config"){
-            if(typeof d.title==="string")out.title=d.title;
-            if(typeof d.sub==="string")out.sub=d.sub;
-          }
-        }catch(e){}
+        var m,d;
+        try{m=JSON.parse(l);}catch(e){return;}
+        if(m.event!=="message"||!m.message)return;
+        try{d=JSON.parse(m.message);}catch(e){return;}
+        if(!d||typeof d!=="object")return;
+        if(d.event==="reset"){ out.resetTs=Math.max(out.resetTs, d.ts||0); return; }
+        if(d.event==="names"&&Array.isArray(d.list)&&d.list.length)out.names=d.list;
+        if(d.event==="config"){ if(typeof d.title==="string")out.title=d.title; if(typeof d.sub==="string")out.sub=d.sub; }
+      });
+      t.split("\n").forEach(function(l){
+        if(!l.trim())return;
+        var m,d;
+        try{m=JSON.parse(l);}catch(e){return;}
+        if(m.event!=="message"||!m.message)return;
+        try{d=JSON.parse(m.message);}catch(e){return;}
+        if(!d||typeof d!=="object")return;
+        if(!d.h||!d.name||d.name==="undefined")return;
+        var ts=d.ts||m.time*1000;
+        if(ts<=out.resetTs)return;
+        if(seen[d.h])return;
+        seen[d.h]=1;
+        out.votes.push({h:d.h,name:d.name,ts:ts,dv:d.dv||"",md:d.md||"",imp:d.imp||0});
       });
       return out;
     });
 }
-function activeTopic(){
-  return ctlLatest().then(function(i){return i.reset?(BASE+i.reset):null;});
+function activeTopic(){return Promise.resolve(TOPIC);}
+function readVotes(){
+  return fetchAll().then(function(a){return a.votes;}).catch(function(){return [];});
 }
-function readVotes(topic){
-  return fetch("https://ntfy.sh/"+topic+"/json?poll=1&since=all&x="+Date.now(),{cache:"no-store"})
-    .then(function(r){return r.text();})
-    .then(function(t){
-      var seen={},order=[];
-      t.split("\n").forEach(function(l){
-        if(!l.trim())return;
-        try{
-          var m=JSON.parse(l);
-          if(m.event!=="message"||!m.message)return;
-          var d=JSON.parse(m.message);
-          if(!d||typeof d!=="object")return;
-          if(d.event==="reset")return;
-          if(!d.h||!d.name||d.name==="undefined"||d.h==="undefined")return;
-          if(!seen[d.h]){seen[d.h]={h:d.h,name:d.name,ts:d.ts||m.time*1000,dv:d.dv||"",md:d.md||"",imp:d.imp||0};order.push(seen[d.h]);}
-        }catch(e){}
-      });
-      return order;
-    });
+function loadState(){
+  return fetchAll().then(function(a){
+    return {round:String(a.resetTs||0), title:a.title, sub:a.sub, names:a.names};
+  }).catch(function(){return null;});
 }
-function post(topic,obj){
-  return fetch("https://ntfy.sh/"+topic,{method:"POST",body:JSON.stringify(obj)});
+function topicFromState(){return TOPIC;}
+function post(a,b){
+  var body=b||a;
+  return fetch("https://ntfy.sh/"+TOPIC,{method:"POST",body:JSON.stringify(body)});
 }
 function byName(votes){
-  var c={},i,v;
-  for(i=0;i<votes.length;i++){v=votes[i];c[v.name]=(c[v.name]||0)+1;}
+  var c={},i;
+  for(i=0;i<votes.length;i++){c[votes[i].name]=(c[votes[i].name]||0)+1;}
   return c;
-}
-
-function loadState(){
-  return fetch("state.json?x="+Date.now(),{cache:"no-store"})
-    .then(function(r){return r.ok?r.json():null;})
-    .catch(function(){return null;});
-}
-function topicFromState(st){
-  return "2617vote-"+((st&&st.round)?st.round:"default");
 }
 
 function sha256hex(ascii){
@@ -183,7 +172,7 @@ function $(i){return document.getElementById(i);}
 function hashOf(c){return sha256hex(c);}
 function claim(card,code){
   card.classList.add("pick");
-  setTimeout(function(){location.href="index.html?v=19&c="+encodeURIComponent(code);},120);
+  setTimeout(function(){location.href="index.html?v=20&c="+encodeURIComponent(code);},120);
 }
 function render(){
   var pool=$("pool");
