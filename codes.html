@@ -101,7 +101,7 @@ function readVotes(topic){
           if(!d||typeof d!=="object")return;
           if(d.event==="reset")return;
           if(!d.h||!d.name||d.name==="undefined"||d.h==="undefined")return;
-          if(!seen[d.h]){seen[d.h]={h:d.h,name:d.name,ts:d.ts||m.time*1000};order.push(seen[d.h]);}
+          if(!seen[d.h]){seen[d.h]={h:d.h,name:d.name,ts:d.ts||m.time*1000,dv:d.dv||"",dup:d.dup||0};order.push(seen[d.h]);}
         }catch(e){}
       });
       return order;
