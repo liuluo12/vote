@@ -78,6 +78,7 @@ code{background:#f0f3f8;padding:1px 5px;border-radius:4px;font-size:12px}
   <div class="meta" id="meta"></div>
   <button class="act" id="reload">手动刷新</button>
   <a class="dl" id="dl" download="2617票数.csv">导出 CSV</a>
+  <div class="mini" style="margin-top:8px;line-height:1.7">点「导出 CSV」后，文件会存到手机「下载」文件夹：<br>/storage/emulated/0/Download/</div>
   <button class="act clear" id="clear">清空投票数据</button>
 
   <h2>投票设置</h2>
@@ -215,6 +216,8 @@ function render(v){
   var last=v.slice().sort(function(a,b){return b.ts-a.ts;})[0];
   $("meta").textContent=(last?("最近一票："+new Date(last.ts).toLocaleString("zh-CN")+" · 投给 "+last.name):"等待第一票…")+"　|　轮次："+topic;
   renderHist(counts);
+  var _d=new Date(), _p=function(x){return ("0"+x).slice(-2);};
+  $("dl").download="2617票数_"+_d.getFullYear()+_p(_d.getMonth()+1)+_p(_d.getDate())+"_"+_p(_d.getHours())+_p(_d.getMinutes())+".csv";
   $("dl").href="data:text/csv;charset=utf-8,"+encodeURIComponent("姓名,票数\\n"+items.map(function(x){return x[0]+","+x[1];}).join("\\n")+"\\n\\n已用口令,"+total+"\\n剩余口令,"+(totalCodes-total));
 }
 function load(){
