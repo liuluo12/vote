@@ -236,13 +236,19 @@ function boot(){
     }
   }).catch(function(e){
     setStatus("status","页面加载出错："+(e&&e.message?e.message:e),"bad");
+  }).then(function(){
+    var m=location.search.match(/[?&](?:c|code)=([0-9A-Za-z]{6})/);
+    if(m){
+      $("code").value=m[1].toUpperCase();
+      setTimeout(checkCode,60);
+    }
   });
 }
 $("code").addEventListener("input",function(e){
   e.target.value=e.target.value.toUpperCase().replace(/[^0-9A-Z]/g,"");
   setStatus("status","");
 });
-$("check").addEventListener("click",function(){
+function checkCode(){
   try{
     var c=($("code").value||"").trim().toUpperCase();
     if(c.length<6){setStatus("status","口令应为 6 位字符","bad");return;}
@@ -258,7 +264,8 @@ $("check").addEventListener("click",function(){
   }catch(e){
     setStatus("status","校验出错："+(e&&e.message?e.message:e),"bad");
   }
-});
+}
+$("check").addEventListener("click",checkCode);
 $("back").addEventListener("click",function(e){
   e.preventDefault();myHash=null;target=null;
   $("step1").style.display="none";$("foot").style.display="none";$("step0").style.display="block";
@@ -287,6 +294,6 @@ setInterval(function(){
     else refresh();
   }).catch(function(){});
 },15000);
-boot();
+try{boot();}catch(e){setStatus("status","页面初始化失败："+(e&&e.message?e.message:e),"bad");}
 </script>
 </body></html>
