@@ -83,7 +83,7 @@ body{padding-bottom:96px;background:#f2f4f8}
 </footer>
 <div class="toast" id="toast"></div>
 <script>
-var BASE="__BASE__", CTL="__CTL__";
+var BASE="2617vote-", CTL="2617vote-ctl";
 
 function activeTopic(){
   return fetch("https://ntfy.sh/"+CTL+"/json?poll=1&since=all&x="+Date.now(),{cache:"no-store"})
