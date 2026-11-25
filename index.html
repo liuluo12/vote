@@ -85,12 +85,12 @@ body{padding-bottom:96px;background:#f2f4f8}
 <div class="dev" id="dev"></div>
 <div class="toast" id="toast"></div>
 <script>var TOPIC="2617vote-2617";
-function fetchAll(){
+var BACKUP_FILE="votes.json";
+function fetchCloud(){
   return fetch("https://ntfy.sh/"+TOPIC+"/json?poll=1&since=all&x="+Date.now(),{cache:"no-store"})
     .then(function(r){return r.text();})
     .then(function(t){
-      var out={resetTs:0,votes:[],names:null,title:"",sub:""};
-      var seen={};
+      var out={resetTs:0,votes:[],names:null,title:"",sub:""},seen={};
       t.split("\n").forEach(function(l){
         if(!l.trim())return;
         var m,d;
@@ -98,9 +98,9 @@ function fetchAll(){
         if(m.event!=="message"||!m.message)return;
         try{d=JSON.parse(m.message);}catch(e){return;}
         if(!d||typeof d!=="object")return;
-        if(d.event==="reset"){ out.resetTs=Math.max(out.resetTs, d.ts||0); return; }
+        if(d.event==="reset"){out.resetTs=Math.max(out.resetTs,d.ts||0);return;}
         if(d.event==="names"&&Array.isArray(d.list)&&d.list.length)out.names=d.list;
-        if(d.event==="config"){ if(typeof d.title==="string")out.title=d.title; if(typeof d.sub==="string")out.sub=d.sub; }
+        if(d.event==="config"){if(typeof d.title==="string")out.title=d.title;if(typeof d.sub==="string")out.sub=d.sub;}
       });
       t.split("\n").forEach(function(l){
         if(!l.trim())return;
@@ -108,26 +108,47 @@ function fetchAll(){
         try{m=JSON.parse(l);}catch(e){return;}
         if(m.event!=="message"||!m.message)return;
         try{d=JSON.parse(m.message);}catch(e){return;}
-        if(!d||typeof d!=="object")return;
-        if(!d.h||!d.name||d.name==="undefined")return;
-        var ts=d.ts||m.time*1000;
-        if(ts<=out.resetTs)return;
+        if(!d||typeof d!=="object"||!d.h||!d.name)return;
         if(seen[d.h])return;
         seen[d.h]=1;
-        out.votes.push({h:d.h,name:d.name,ts:ts,dv:d.dv||"",md:d.md||"",imp:d.imp||0});
+        out.votes.push({h:d.h,name:d.name,ts:d.ts||m.time*1000,dv:d.dv||"",md:d.md||"",imp:d.imp||0});
       });
       return out;
-    });
+    })
+    .catch(function(){return {resetTs:0,votes:[],names:null,title:"",sub:""};});
 }
-function activeTopic(){return Promise.resolve(TOPIC);}
-function readVotes(){
-  return fetchAll().then(function(a){return a.votes;}).catch(function(){return [];});
+function fetchBackup(){
+  return fetch(BACKUP_FILE+"?x="+Date.now(),{cache:"no-store"})
+    .then(function(r){return r.ok?r.json():null;})
+    .catch(function(){return null;});
+}
+function effective(){
+  return Promise.all([fetchBackup(),fetchCloud()]).then(function(res){
+    var bk=res[0]||{},cloud=res[1]||{};
+    var round=Math.max(bk.round||0,cloud.resetTs||0);
+    var map={},order=[];
+    function add(v){
+      if(!v||!v.h||!v.name)return;
+      if((v.ts||0)<=round)return;
+      if(map[v.h])return;
+      map[v.h]=1;order.push({h:v.h,name:v.name,ts:v.ts||0,dv:v.dv||"",md:v.md||"",imp:v.imp||0});
+    }
+    if(bk.votes){for(var k in bk.votes){var b=bk.votes[k];add({h:k,name:b.name,ts:b.ts,dv:b.dv,md:b.md,imp:b.imp});}}
+    (cloud.votes||[]).forEach(add);
+    return {
+      round:String(round),
+      votes:order,
+      names:(cloud.names&&cloud.names.length?cloud.names:(bk.names&&bk.names.length?bk.names:null)),
+      title:(cloud.title||bk.title||""),
+      sub:(cloud.sub||bk.sub||"")
+    };
+  }).catch(function(){return {round:"0",votes:[],names:null,title:"",sub:""};});
 }
 function loadState(){
-  return fetchAll().then(function(a){
-    return {round:String(a.resetTs||0), title:a.title, sub:a.sub, names:a.names};
-  }).catch(function(){return null;});
+  return effective().then(function(e){return {round:e.round,title:e.title,sub:e.sub,names:e.names};});
 }
+function readVotes(){return effective().then(function(e){return e.votes;});}
+function activeTopic(){return Promise.resolve(TOPIC);}
 function topicFromState(){return TOPIC;}
 function post(a,b){
   var body=b||a;
