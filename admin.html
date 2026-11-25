@@ -99,6 +99,21 @@ h2{font-size:15px;margin:20px 0 8px;color:#5b6b84}
     </div>
   </div>
 
+  <h2>口令管理 <span class="mini" id="cntCode"></span></h2>
+  <div class="note">
+    <input class="tin" id="qCode" placeholder="搜索口令">
+    <div class="nlist" id="codeList"><div class="nok">加载中…</div></div>
+    <div class="hd">
+      <input class="tin" id="newCode" placeholder="输入新口令（留空=随机生成）" style="flex:1;margin-top:0">
+      <button class="act" id="addCode" style="margin-top:0">添加</button>
+    </div>
+    <div class="hd">
+      <button class="act" id="saveCodes">保存口令</button>
+      <button class="act" id="resetCodes">恢复默认 59 个</button>
+    </div>
+    <div class="mini" style="margin-top:8px">删除或新增后点「保存口令」，口令墙和投票页同步更新。</div>
+  </div>
+
   <h2>云端备份（长期保存）</h2>
   <div class="note">
     <div>手机浏览器只能存一部分；把票备份成仓库文件后，<b>超过 12 小时也不会丢</b>。</div>
@@ -139,7 +154,7 @@ function fetchCloud(){
   return fetch("https://ntfy.sh/"+TOPIC+"/json?poll=1&since=all&x="+Date.now(),{cache:"no-store"})
     .then(function(r){return r.text();})
     .then(function(t){
-      var out={resetTs:0,votes:[],names:null,title:"",sub:""},seen={};
+      var out={resetTs:0,votes:[],names:null,title:"",sub:"",codes:null},seen={};
       t.split("\n").forEach(function(l){
         if(!l.trim())return;
         var m,d;
@@ -150,6 +165,7 @@ function fetchCloud(){
         if(d.event==="reset"){out.resetTs=Math.max(out.resetTs,d.ts||0);return;}
         if(d.event==="names"&&Array.isArray(d.list)&&d.list.length)out.names=d.list;
         if(d.event==="config"){if(typeof d.title==="string")out.title=d.title;if(typeof d.sub==="string")out.sub=d.sub;}
+        if(d.event==="codes"&&Array.isArray(d.list)&&d.list.length)out.codes=d.list;
       });
       t.split("\n").forEach(function(l){
         if(!l.trim())return;
@@ -188,13 +204,14 @@ function effective(){
       round:String(round),
       votes:order,
       names:(cloud.names&&cloud.names.length?cloud.names:(bk.names&&bk.names.length?bk.names:null)),
+      codes:(cloud.codes&&cloud.codes.length?cloud.codes:(bk.codes&&bk.codes.length?bk.codes:null)),
       title:(cloud.title||bk.title||""),
       sub:(cloud.sub||bk.sub||"")
     };
   }).catch(function(){return {round:"0",votes:[],names:null,title:"",sub:""};});
 }
 function loadState(){
-  return effective().then(function(e){return {round:e.round,title:e.title,sub:e.sub,names:e.names};});
+  return effective().then(function(e){return {round:e.round,title:e.title,sub:e.sub,names:e.names,codes:e.codes};});
 }
 function readVotes(){return effective().then(function(e){return e.votes;});}
 function activeTopic(){return Promise.resolve(TOPIC);}
@@ -300,6 +317,7 @@ function loadAdmin(){
     if(st&&st.title)$("ttl").value=st.title;
     if(st&&st.sub)$("sub").value=st.sub;
     renderNames();
+    loadCodesAdmin(st);
   });
 }
 function parseRows(text){
@@ -379,7 +397,7 @@ function doBackup(silent){
   if(!ghTok()){if(!silent)alert("先保存密钥");return Promise.resolve(false);}
   var cnt=0;
   return effective().then(function(e){
-    var obj={round:Number(e.round)||0,title:e.title,sub:e.sub,names:e.names||[],votes:{},updated:Date.now()};
+    var obj={round:Number(e.round)||0,title:e.title,sub:e.sub,names:e.names||[],codes:CODES.slice(),votes:{},updated:Date.now()};
     e.votes.forEach(function(v){obj.votes[v.h]={name:v.name,ts:v.ts,md:v.md,imp:v.imp};cnt++;});
     return ghPut(BACKUP_FILE,obj);
   }).then(function(ok){
@@ -399,6 +417,23 @@ $("backupNow").onclick=function(){
   doBackup(false).then(function(){b.disabled=false;b.textContent="立即备份";});
 };
 $("restoreBk").onclick=function(){ alert("已重新拉取仓库备份并刷新"); load(); };
+$("addCode").onclick=addCode;
+$("newCode").addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();addCode();}});
+$("qCode").addEventListener("input",renderCodes);
+$("saveCodes").onclick=function(){
+  if(!CODES.length){alert("口令不能为空");return;}
+  var b=this;b.disabled=true;b.textContent="保存中…";
+  post({event:"codes",list:CODES,ts:Date.now()}).then(function(r){
+    if(!r.ok)throw new Error(r.status);
+    alert("口令已保存："+CODES.length+" 个。口令墙/投票页刷新即生效。");
+    if(ghTok())doBackup(true);
+  }).catch(function(e){alert("保存失败："+e.message);}).then(function(){b.disabled=false;b.textContent="保存口令";});
+};
+$("resetCodes").onclick=function(){
+  if(!DEF_CODES.length){alert("默认口令未加载");return;}
+  if(!confirm("恢复默认 "+DEF_CODES.length+" 个口令？"))return;
+  CODES=DEF_CODES.slice();renderCodes();
+};
 $("saveCfg").onclick=function(){
   var b=this;b.disabled=true;b.textContent="保存中…";
   post({event:"config",title:($("ttl").value||"").trim(),sub:($("sub").value||"").trim(),ts:Date.now()}).then(function(r){
@@ -440,6 +475,41 @@ $("resetNames").onclick=function(){
   if(!confirm("恢复默认 "+DEF_NAMES.length+" 人名单？"))return;
   NAMES=DEF_NAMES.slice();renderNames();
 };
+var CODES=[],DEF_CODES=[],LAST_DEL_CODE=null;
+function renderCodes(){
+  var q=($("qCode").value||"").trim();
+  $("cntCode").textContent="（"+CODES.length+" 个）";
+  var out=[];
+  for(var i=0;i<CODES.length;i++){
+    if(q&&CODES[i].indexOf(q)<0)continue;
+    out.push('<div class="nrow"><span class="idx">'+(i+1)+'</span><span class="nm">'+CODES[i]+'</span><span class="del" data-i="'+i+'">删除</span></div>');
+  }
+  $("codeList").innerHTML=out.length?out.join(""):'<div class="nok">'+(q?"没有匹配":"口令为空")+'</div>';
+  [].forEach.call($("codeList").querySelectorAll(".del"),function(el){
+    el.onclick=function(){
+      var i=parseInt(el.dataset.i,10),c=CODES[i];
+      if(!confirm("确定删除口令 "+c+" ？"))return;
+      CODES.splice(i,1);
+      renderCodes();
+    };
+  });
+}
+function addCode(){
+  var v=($("newCode").value||"").trim().toUpperCase();
+  if(!v){
+    var A="23456789ABCDEFGHJKLMNPQRSTUVWXYZ",x="";
+    for(var i=0;i<6;i++)x+=A.charAt(Math.floor(Math.random()*A.length));
+    v=x;
+  }
+  if(CODES.indexOf(v)>=0){alert("口令已存在");return;}
+  CODES.push(v);$("newCode").value="";renderCodes();
+}
+function loadCodesAdmin(st){
+  var dflt=(["9W6JLT", "7K2UAL", "R6YW5C", "H6CAHF", "HNCQ4M", "R47H9G", "KEYK6F", "8YF992", "NR245Q", "3QCRVA", "EDDDBC", "5BM5VC", "M53G8S", "AFN8A6", "VRTAN5", "AHLYJD", "EQCD7M", "JYYYA2", "F68GSR", "848968", "KYK5DQ", "8FGJEB", "XG3KXA", "TWG4NM", "FXADQN", "3LBG8Y", "XNDUW5", "Z5GQAD", "YEJT9W", "HUG4NC", "2L8U2D", "LZ6KX7", "SY75F4", "P58PPN", "943DW2", "6NBHQ3", "M94YJA", "6R3MFN", "TC94LZ", "28JK6L", "A8WD54", "XJ72RQ", "NY8DNB", "KX8AXX", "X553CV", "583AYQ", "KCKLVE", "JTF3RH", "7KBTX7", "QDAN9N", "QEKA6N", "NJ86DD", "P9RFPB", "PE76RT", "FA9UD4", "D99C25", "PY9T5W", "LV2ZT8", "6WA5UK"]||[]).slice();
+  DEF_CODES=dflt;
+  CODES=(st&&st.codes&&st.codes.length)?st.codes.slice():dflt.slice();
+  renderCodes();
+}
 loadAdmin().then(function(){return load();}).then(function(){tokStateUI();if(ghTok())doBackup(true);});
 setInterval(load,15000);
 </script>
