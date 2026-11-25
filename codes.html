@@ -58,10 +58,12 @@ box-shadow:0 1px 4px rgba(20,40,80,.06);cursor:pointer;transition:.18s}
 .pcard.used{opacity:0;transform:scale(.6);pointer-events:none}
 .pcard.pick{border-color:#2f6bff;background:#eef3ff}
 .note{font-size:12px;color:#93a1b7;padding:14px 18px;line-height:1.8}
+.used{font-size:12px;color:#93a1b7;margin:0 4px 8px}
 .warn{background:#fff6e6;color:#a8570a;border-radius:12px;margin:0 14px 12px;padding:10px 12px;font-size:12px;line-height:1.7}
 </style></head><body>
 <div class="top">
   <div class="big"><b id="left">59</b><span>个口令还没人用</span></div>
+  <div class="used" id="usedline"></div>
   <div class="warn">点一个还有效的口令 → 自动进入投票页。用掉后这张卡会消失，刷新不影响。</div>
 </div>
 <div class="pool" id="pool"><div class="note">加载中…</div></div>
@@ -168,16 +170,16 @@ function claim(card,code){
 }
 function render(){
   var pool=$("pool");
-  pool.innerHTML=CODES.map(function(c){
-    var used=!!usedH[c];
-    return '<div class="pcard'+(used?' used':'')+'" data-c="'+c+'"><div class="k">'+c+'</div><div class="s">'+(used?'已用':'点这里投票')+'</div></div>';
-  }).join("");
+  var free=CODES.filter(function(c){return !usedH[c];});
+  var usedCount=CODES.length-free.length;
+  pool.innerHTML=free.length?free.map(function(c){
+    return '<div class="pcard" data-c="'+c+'"><div class="k">'+c+'</div><div class="s">点这里投票</div></div>';
+  }).join(""):'<div class="note" style="grid-column:1/-1;text-align:center;padding:40px 0">口令已全部用完</div>';
+  $("usedline").textContent=usedCount?("已用 "+usedCount+" 个（已隐藏）"):"";
   [].forEach.call(pool.querySelectorAll(".pcard"),function(el){
-    if(el.classList.contains("used"))return;
     el.onclick=function(){claim(el,el.dataset.c);};
   });
-  var left=CODES.filter(function(c){return !usedH[c];}).length;
-  $("left").textContent=left;
+  $("left").textContent=free.length;
   $("meta").textContent="共 59 个口令，已用 "+(59-left)+" 个 ｜ 每 8 秒自动刷新 ｜ 轮次 "+topic;
 }
 function refresh(){
