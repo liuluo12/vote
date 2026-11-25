@@ -112,7 +112,7 @@ h2{font-size:15px;margin:20px 0 8px;color:#5b6b84}
       <button class="act" id="reload">手动刷新</button>
       <button class="act clear" id="clear">清空投票数据</button>
     </div>
-    <div class="mini" style="margin-top:8px">导出后文件存到手机：/storage/emulated/0/Download/</div>
+    <div class="mini" style="margin-top:8px">导出后文件存到手机：/storage/emulated/0/Download/　｜　本机自动存档本轮全部票，云端过期也不丢</div>
   </div>
 
   <h2>历史对比</h2>
@@ -175,6 +175,20 @@ function byName(votes){
 }
 
 var NAMES=[],DEF_NAMES=[],LAST_DEL=null,topic="",all=null;
+var ARC_PREFIX="arc_2617_",CUR_ROUND="0";
+function arcKey(){return ARC_PREFIX+CUR_ROUND;}
+function getArc(){try{return JSON.parse(localStorage.getItem(arcKey())||"{}");}catch(e){return {};}}
+function mergeArc(votes){
+  var a=getArc();
+  votes.forEach(function(v){ if(v.h)a[v.h]={name:v.name,ts:v.ts,md:v.md||"",imp:v.imp||0}; });
+  try{localStorage.setItem(arcKey(),JSON.stringify(a));}catch(e){}
+  return a;
+}
+function arcVotes(){
+  var a=getArc(),out=[];
+  for(var k in a){ out.push({h:k,name:a[k].name,ts:a[k].ts,md:a[k].md,imp:a[k].imp}); }
+  return out;
+}
 var TOTAL_CODES=59;
 function $(i){return document.getElementById(i);}
 function pad(x){return ("0"+x).slice(-2);}
@@ -202,9 +216,17 @@ function render(v){
   renderHist(counts);
 }
 function load(){
-  loadState().then(function(st){ return readVotes(topicFromState(st)); })
-   .then(function(v){if(v)render(v);})
-   .catch(function(){$("rows").innerHTML='<div class="empty">加载失败，稍后自动重试</div>';});
+  loadState().then(function(st){
+    CUR_ROUND=(st&&st.round)?String(st.round):"0";
+    return readVotes(topicFromState(st)).then(function(v){
+      var cloud=(v||[]).length;
+      mergeArc(v||[]);
+      var allv=arcVotes();
+      render(allv);
+      var extra=allv.length-cloud;
+      $("meta").textContent=($("meta").textContent||"")+(extra>0?("　|　本机存档多 "+extra+" 票（云端已过期）"):"");
+    });
+  }).catch(function(){$("rows").innerHTML='<div class="empty">加载失败，稍后自动重试</div>';});
 }
 function renderNames(){
   var q=($("qName").value||"").trim();
@@ -323,6 +345,7 @@ $("clear").onclick=function(){
   b.disabled=true;b.textContent="清空中…";
   post({event:"reset",ts:Date.now()}).then(function(r){
     if(!r.ok)throw new Error(r.status);
+    try{localStorage.removeItem(arcKey());}catch(e){}
     alert("已清空，同学刷新页面即可重新投票。");
     load();
   }).catch(function(e){alert("清空失败："+e.message);}).then(function(){b.disabled=false;b.textContent="清空投票数据";});
