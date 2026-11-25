@@ -85,6 +85,11 @@ code{background:#f0f3f8;padding:1px 5px;border-radius:4px;font-size:12px}
     <div class="fld"><span>标题</span><input class="tin" id="ttl" placeholder="例如：2617班 优秀学生评选"></div>
     <div class="fld"><span>副标题</span><input class="tin" id="sub" placeholder="例如：请从名单中选出 1 人（每台设备一票）"></div>
     <button class="act" id="saveCfg">保存标题</button>
+    <div class="fld"><span>发布密钥（GitHub token，只存在你手机上）</span>
+      <input class="tin" id="tok" placeholder="粘贴 ghp_ 开头的 token，保存一次即可">
+      <button class="act" id="saveTok">保存密钥</button>
+      <span class="mini" id="tokState"></span>
+    </div>
     <div class="mini" style="margin-top:8px">保存后，同学刷新投票页即生效。</div>
   </div>
 
@@ -178,6 +183,15 @@ function byName(votes){
   return c;
 }
 
+function loadState(){
+  return fetch("state.json?x="+Date.now(),{cache:"no-store"})
+    .then(function(r){return r.ok?r.json():null;})
+    .catch(function(){return null;});
+}
+function topicFromState(st){
+  return "2617vote-"+((st&&st.round)?st.round:"default");
+}
+
 var topic=null,totalCodes=59;
 function $(i){return document.getElementById(i);}
 function render(v){
@@ -204,10 +218,9 @@ function render(v){
   $("dl").href="data:text/csv;charset=utf-8,"+encodeURIComponent("姓名,票数\\n"+items.map(function(x){return x[0]+","+x[1];}).join("\\n")+"\\n\\n已用口令,"+total+"\\n剩余口令,"+(totalCodes-total));
 }
 function load(){
-  activeTopic().then(function(t){
-    topic=t;
-    if(!t){$("rows").innerHTML='<div class="empty">投票尚未开始</div>';return null;}
-    return readVotes(t);
+  loadStateAdmin().then(function(st){
+    topic="2617vote-"+((st&&st.round)?st.round:"default");
+    return readVotes(topic);
   }).then(function(v){if(v)render(v);})
    .catch(function(){$("rows").innerHTML='<div class="empty">加载失败，稍后自动重试</div>';});
 }
@@ -294,18 +307,45 @@ $("clrHist").onclick=function(){
   try{localStorage.removeItem(histKey());}catch(e){}
   load();
 };
+
+var TOK_KEY="gh_tok_2617";
+function ghToken(){try{return localStorage.getItem(TOK_KEY)||"";}catch(e){return "";}}
+var REPO="liuluo12/vote";
+var STATE={round:"",title:"",sub:"",names:[]};
+function loadStateAdmin(){
+  return fetch("state.json?x="+Date.now(),{cache:"no-store"})
+    .then(function(r){return r.ok?r.json():null;})
+    .then(function(st){STATE=st||{round:"default",title:"",sub:"",names:[]};return STATE;})
+    .catch(function(){return STATE;});
+}
+function saveState(patch){
+  return fetch("https://api.github.com/repos/"+REPO+"/contents/state.json",{
+    headers:{"Authorization":"Bearer "+ghToken(),"Accept":"application/vnd.github+json"}
+  }).then(function(r){return r.json();}).then(function(cur){
+    var next={};
+    for(var k in STATE)next[k]=STATE[k];
+    for(var k2 in patch)next[k2]=patch[k2];
+    next.updated=Date.now();
+    var body={message:"state update",content:btoa(unescape(encodeURIComponent(JSON.stringify(next, null, 1)))),sha:cur.sha};
+    return fetch("https://api.github.com/repos/"+REPO+"/contents/state.json",{
+      method:"PUT",
+      headers:{"Authorization":"Bearer "+ghToken(),"Accept":"application/vnd.github+json","Content-Type":"application/json"},
+      body:JSON.stringify(body)
+    });
+  }).then(function(r){if(!r.ok)throw new Error("HTTP "+r.status);STATE=Object.assign({},STATE,patch);return STATE;});
+}
+
 var NAMES=[],DEF_NAMES=[];
 function loadNamesAdmin(){
-  return fetch("names.json?x="+Date.now()).then(function(r){return r.json();}).then(function(l){
-    DEF_NAMES=(l||[]).filter(function(x){return typeof x==="string"&&x.trim();}).map(function(x){return x.trim();});
-    return ctlLatest();
-  }).then(function(info){
-    NAMES=(info.names&&info.names.length)?info.names.slice():DEF_NAMES.slice();
-    if(info.title)$("ttl").value=info.title;
-    if(info.sub)$("sub").value=info.sub;
+  return Promise.all([loadStateAdmin(), fetch("names.json?x="+Date.now()).then(function(r){return r.json();}).catch(function(){return [];})]).then(function(res){
+    var st=res[0], dflt=res[1]||[];
+    DEF_NAMES=dflt.filter(function(x){return typeof x==="string"&&x.trim();}).map(function(x){return x.trim();});
+    NAMES=(st.names&&st.names.length)?st.names.slice():DEF_NAMES.slice();
+    if(st.title)$("ttl").value=st.title;
+    if(st.sub)$("sub").value=st.sub;
     renderNames();
     return NAMES;
-  }).catch(function(){NAMES=DEF_NAMES.slice();renderNames();return NAMES;});
+  });
 }
 function renderNames(){
   var q=($("qName")?$("qName").value:"").replace(/^\s+|\s+$/g,"");
@@ -348,37 +388,57 @@ $("undo").onclick=function(e){e.preventDefault();undoDel();};
 $("qName").addEventListener("input",function(){renderNames();});
 $("newName").addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();addName();}});
 $("saveNames").onclick=function(){
+  if(!ghToken()){alert("请先在「发布密钥」里填一次 token");return;}
   if(!NAMES.length){alert("名单不能为空");return;}
   var b=this;b.disabled=true;b.textContent="保存中…";
-  post(CTL,{event:"names",list:NAMES,ts:Date.now()}).then(function(r){
-    if(!r.ok)throw new Error(r.status);
+  saveState({names:NAMES}).then(function(){
     alert("名单已保存："+NAMES.length+" 人。\n同学刷新投票页即可看到。");
-  }).catch(function(e){alert("保存失败："+e.message);}).then(function(){b.disabled=false;b.textContent="保存名单";});
+  }).catch(function(e){alert("保存失败："+e.message);})
+   .then(function(){b.disabled=false;b.textContent="保存名单";});
 };
 $("resetNames").onclick=function(){
   if(!DEF_NAMES.length){alert("默认名单还没加载好，请刷新");return;}
   if(!confirm("恢复为默认的 "+DEF_NAMES.length+" 人名单？（保存后生效）"))return;
   NAMES=DEF_NAMES.slice();renderNames();
 };
+$("saveTok").onclick=function(){
+  var v=($("tok").value||"").trim();
+  if(!v){alert("请粘贴 token");return;}
+  try{localStorage.setItem(TOK_KEY,v);}catch(e){}
+  $("tok").value="";
+  updateTokState();
+  alert("密钥已保存到本机浏览器。\n现在可以改标题、改名单、清空投票了。");
+};
+function updateTokState(){
+  var has=!!ghToken();
+  var el=$("tokState");
+  if(el){el.textContent=has?"已设置 ✓":"未设置（保存标题/名单/清空需要它）";el.style.color=has?"#00a878":"#e5484d";}
+}
 $("saveCfg").onclick=function(){
+  if(!ghToken()){alert("请先在「发布密钥」里填一次 token");return;}
   var b=this;b.disabled=true;b.textContent="保存中…";
-  post(CTL,{event:"config",title:($("ttl").value||"").replace(/^\s+|\s+$/g,""),sub:($("sub").value||"").replace(/^\s+|\s+$/g,""),ts:Date.now()}).then(function(r){
-    if(!r.ok)throw new Error(r.status);
+  var t=($("ttl").value||"").replace(/^\s+|\s+$/g,""), u=($("sub").value||"").replace(/^\s+|\s+$/g,"");
+  saveState({title:t,sub:u}).then(function(){
     alert("标题已保存。\n同学刷新投票页即可看到。");
-  }).catch(function(e){alert("保存失败："+e.message);}).then(function(){b.disabled=false;b.textContent="保存标题";});
+  }).catch(function(e){alert("保存失败："+e.message);})
+   .then(function(){b.disabled=false;b.textContent="保存标题";});
 };
 $("reload").onclick=load;
 $("clear").onclick=function(){
+  if(!ghToken()){alert("请先在「发布密钥」里填一次 token");return;}
   var b=this;
-  if(!confirm("清空后所有票数归零，已用的口令也会作废。确定清空吗？"))return;
+  if(!confirm("清空后所有票数归零，已用的口令也会恢复。确定清空吗？"))return;
   if(!confirm("再确认一次：真的要清空本轮投票数据？"))return;
   b.disabled=true;b.textContent="清空中…";
-  post(CTL,{event:"reset",ts:Date.now()}).then(function(r){
-    if(!r.ok)throw new Error(r.status);return activeTopic();
-  }).then(function(t){topic=t;alert("已清空！投票页 15 秒内自动切到新一轮。\\n新轮次："+t);load();})
-   .catch(function(e){alert("清空失败："+e.message);})
+  var nr=Date.now().toString(36);
+  saveState({round:nr}).then(function(){
+    topic="2617vote-"+nr;
+    alert("已清空！\n新一轮已生效，同学刷新页面即可重新投票。");
+    load();
+  }).catch(function(e){alert("清空失败："+e.message);})
    .then(function(){b.disabled=false;b.textContent="清空投票数据";});
 };
+updateTokState();
 load();
 loadNamesAdmin();
 setInterval(load,15000);
