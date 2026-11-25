@@ -5,113 +5,164 @@
 <title>2617班 · 票数后台</title>
 <style>
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-body{margin:0;font:16px/1.5 -apple-system,"PingFang SC","Noto Sans CJK SC",system-ui,sans-serif;background:#f2f4f8;color:#16202e;padding-bottom:40px}
-header{background:linear-gradient(135deg,#1e2a3a,#2f6bff);color:#fff;padding:24px 20px;border-radius:0 0 22px 22px}
-h1{margin:0;font-size:20px}.sub{margin-top:6px;font-size:13px;opacity:.9}
-.pill{display:inline-block;margin-top:10px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);border-radius:999px;padding:4px 12px;font-size:13px;margin-right:8px}
-main{padding:16px}
-.rows{background:#fff;border-radius:16px;padding:6px 14px;box-shadow:0 2px 10px rgba(20,40,80,.06)}
+body{margin:0;font:16px/1.5 -apple-system,"PingFang SC","Noto Sans CJK SC",system-ui,sans-serif;background:#f2f4f8;color:#16202e}
+header{background:linear-gradient(135deg,#2f6bff,#00c2a8);color:#fff;padding:26px 20px 22px;border-radius:0 0 22px 22px}
+h1{margin:0;font-size:21px}
+.sub{margin-top:6px;font-size:13px;opacity:.92}
+.pill{display:inline-block;margin-top:12px;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.35);border-radius:999px;padding:4px 12px;font-size:13px;margin-right:8px}
+.wrap{padding:14px}
+.search{width:100%;border:0;border-radius:14px;padding:12px 14px;font-size:15px;background:#fff;outline:none;box-shadow:0 2px 8px rgba(20,40,80,.06)}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-top:14px}
+@media(max-width:360px){.grid{grid-template-columns:repeat(2,1fr)}}
+.card{background:#fff;border:2px solid transparent;border-radius:14px;padding:14px 6px;text-align:center;font-size:15px;font-weight:600;color:#1b2a41;box-shadow:0 1px 4px rgba(20,40,80,.06);cursor:pointer;user-select:none;overflow-wrap:anywhere}
+.card.on{border-color:#2f6bff;background:#eef3ff;color:#1a4fd6}
+.card .idx{display:block;font-size:11px;font-weight:400;color:#9aa7bd;margin-top:2px}
+footer{position:fixed;left:0;right:0;bottom:0;padding:12px 14px calc(12px + env(safe-area-inset-bottom));background:rgba(255,255,255,.95);border-top:1px solid #e6eaf2;display:flex;align-items:center;gap:10px}
+.sel{flex:1;font-size:14px;color:#5b6b84}
+.sel b{color:#16202e;font-size:16px}
+.btn{border:0;border-radius:14px;padding:14px 22px;font-size:16px;font-weight:700;color:#fff;background:linear-gradient(135deg,#2f6bff,#00a6ff)}
+.btn:disabled{background:#c9d3e4}
+#done{display:none;text-align:center;padding:44px 20px}
+.big{font-size:52px;margin:0 0 10px}
+.thanks{font-size:18px;font-weight:700;color:#00a878}
+.t2{color:#5b6b84;font-size:14px;margin-top:6px}
+.rows{background:#fff;border-radius:16px;padding:6px 14px;box-shadow:0 2px 10px rgba(20,40,80,.06);margin-top:14px}
 .row{padding:11px 0;border-bottom:1px solid #f0f3f8}
 .row:last-child{border-bottom:0}
 .rl{display:flex;justify-content:space-between;align-items:baseline;font-size:15px}
 .n{font-weight:600}
 .v{color:#5b6b84;font-size:13px}
 .bar{height:9px;border-radius:6px;background:#eef1f7;overflow:hidden;margin-top:7px}
-.bar i{display:block;height:100%;border-radius:6px;background:linear-gradient(90deg,#2f6bff,#00c2a8);transition:width .5s}
+.bar i{display:block;height:100%;border-radius:6px;background:linear-gradient(90deg,#2f6bff,#00c2a8);transition:width .4s}
 .top{color:#d97706;font-size:12px;margin-left:6px;font-weight:700}
 .empty{text-align:center;color:#93a1b7;padding:30px 0;font-size:14px}
-.meta{color:#8a97ac;font-size:12px;margin-top:14px;line-height:1.7}
-button{border:0;background:#2f6bff;color:#fff;border-radius:12px;padding:10px 18px;font-size:14px;font-weight:600;margin-top:14px}
-.dl{color:#2f6bff;font-size:13px;margin-left:10px}
-#clear{background:#e5484d;margin-left:10px}
+.meta{color:#8a97ac;font-size:12px;margin-top:14px;line-height:1.7;word-break:break-all}
+button.act{border:0;background:#2f6bff;color:#fff;border-radius:12px;padding:10px 18px;font-size:14px;font-weight:600;margin-top:14px}
+button.clear{background:#e5484d}
+a.dl{color:#2f6bff;font-size:13px;margin-left:10px;text-decoration:none}
+.toast{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);background:rgba(20,30,50,.9);color:#fff;padding:12px 20px;border-radius:12px;font-size:15px;opacity:0;transition:.25s;pointer-events:none;z-index:9}
+
+header{background:linear-gradient(135deg,#1e2a3a,#2f6bff)}
+main{padding:16px}
 </style></head><body>
 <header>
   <h1>2617班 · 票数后台</h1>
   <div class="sub">实时统计（每 15 秒自动刷新）</div>
-  <div><span class="pill" id="total">已投 0 票</span><span class="pill" id="people">0 / 59 人已得票</span></div>
+  <div><span class="pill" id="total">已投 0 票</span><span class="pill" id="people">0 人已得票</span></div>
 </header>
 <main>
   <div class="rows" id="rows"><div class="empty">加载中…</div></div>
   <div class="meta" id="meta"></div>
-  <button onclick="load()">手动刷新</button>
+  <button class="act" id="reload">手动刷新</button>
   <a class="dl" id="dl" download="2617票数.csv">导出 CSV</a>
-  <button id="clear">清空投票数据</button>
+  <button class="act clear" id="clear">清空投票数据</button>
 </main>
 <script>
-let TOPIC="2617vote-4e9fe73a131a";
-let TOPIC2="";
-document.getElementById("clear").onclick = async function(){
-  var ok = confirm("清空后所有票数归零，之前投的票无法找回。确定清空吗？");
-  if(!ok) return;
-  ok = confirm("再确认一次：真的要清空本轮投票数据？");
-  if(!ok) return;
-  var btn = this;
-  btn.disabled = true; btn.textContent = "清空中…";
-  var chars = "0123456789abcdef";
-  var nt = "2617vote-";
-  for (var i = 0; i < 12; i++) nt += chars.charAt(Math.floor(Math.random() * 16));
-  try {
-    try { await fetch("https://ntfy.sh/" + TOPIC, { method: "POST", body: JSON.stringify({ event: "round-close", ts: Date.now() }) }); } catch (e) {}
-    var r1 = await fetch("https://ntfy.sh/" + nt, { method: "POST", body: JSON.stringify({ event: "round-open", ts: Date.now() }) });
-    if (!r1.ok) throw new Error("新频道创建失败 " + r1.status);
-    var gh = "https://api.github.com/repos/liuluo12/vote/contents/index.html?t=" + Date.now();
-    var f = await fetch(gh).then(function(r){ return r.json(); });
-    var txt = decodeB64(f.content);
-    txt = txt.replace(/const TOPIC="[^"]*";/, 'const TOPIC="' + nt + '";');
-    var put = await fetch("https://api.github.com/repos/liuluo12/vote/contents/index.html", {
-      method: "PUT",
-      headers: { "Accept": "application/vnd.github+json", "Content-Type": "application/json" },
-      body: JSON.stringify({ message: "clear votes -> " + nt, content: btoa(unescape(encodeURIComponent(txt))), sha: f.sha })
-    });
-    if (!put.ok) throw new Error("投票页更新失败 " + put.status);
-    TOPIC2 = nt;
-    document.getElementById("meta").textContent = "已清空。新频道：" + nt + "（投票页约 30 秒后生效）";
-    alert("投票数据已清空！\n\n新频道：" + nt + "\n等约 30 秒后，投票页即可重新使用。");
-  } catch (e) {
-    alert("清空失败：" + e.message);
-  } finally {
-    btn.disabled = false; btn.textContent = "清空投票数据";
-    if (TOPIC2) TOPIC = TOPIC2;
-    load();
-  }
-};
-
-async function load(){
-  const rows=document.getElementById("rows");
-  try{
-    const r=await fetch("https://ntfy.sh/"+(TOPIC2||TOPIC)+"/json?poll=1");
-    const t=await r.text();
-    const seen={};
-    t.split("\n").forEach(l=>{
-      if(!l.trim())return;
-      try{
-        const m=JSON.parse(l);
-        if(m.event==="message"){
-          const d=JSON.parse(m.message);
-          seen[d.id]={name:d.name,ts:d.ts||m.time*1000};
-        }
-      }catch(e){}
-    });
-    const votes=Object.values(seen);
-    const counts={};
-    votes.forEach(function(v){if(v&&v.name&&v.name!=="undefined")counts[v.name]=(counts[v.name]||0)+1;});
-    const total=votes.length;
-    document.getElementById("total").textContent="已投 "+total+" 票";
-    document.getElementById("people").textContent=Object.keys(counts).length+" / 59 人已得票";
-    const items=Object.entries(counts).sort((a,b)=>b[1]-a[1]);
-    const max=Math.max(1,...items.map(x=>x[1]));
-    rows.innerHTML=items.length?items.map(([n,c],i)=>{
-      const pct=total?(c/total*100).toFixed(1):"0.0";
-      return '<div class="row"><div class="rl"><span class="n">'+n+(i===0&&total?'<span class="top">领先</span>':'')+'</span><span class="v">'+c+' 票 · '+pct+'%</span></div><div class="bar"><i style="width:'+(c/max*100)+'%"></i></div></div>';
-    }).join(""):'<div class="empty">还没有人投票</div>';
-    const last=votes.sort((a,b)=>b.ts-a.ts)[0];
-    document.getElementById("meta").textContent=total?("最近一票："+new Date(last.ts).toLocaleString("zh-CN")+" · 投给 "+last.name):"等待第一票…";
-    const csv="姓名,票数\n"+items.map(([n,c])=>n+","+c).join("\n");
-    document.getElementById("dl").href="data:text/csv;charset=utf-8,"+encodeURIComponent(csv);
-  }catch(e){
-    rows.innerHTML='<div class="empty">加载失败：'+e.message+'<br>稍后自动重试</div>';
-  }
+var BASE="2617vote-", CTL="2617vote-ctl";
+function fpId(){
+  var ua=(navigator.userAgent||"").replace(/\/[0-9.]+/g,"").replace(/\([^)]*\)/g,"")
+    .replace(/Chrome|Chromium|Firefox|Safari|Edg[A-Za-z]*|OPR|Opera|MicroMessenger|QQBrowser|UCBrowser|Mobile|Android|Linux|Windows|iPhone|iPad|Macintosh|wv|;|\s/gi,"");
+  var parts=[ua,screen.width+"x"+screen.height,navigator.hardwareConcurrency||0,navigator.deviceMemory||0,navigator.maxTouchPoints||0];
+  var raw=parts.join("|"),h=5381,i;
+  for(i=0;i<raw.length;i++)h=((h*33)^raw.charCodeAt(i))>>>0;
+  return "d"+h.toString(36);
 }
+function deviceId(){
+  var k="vote_devid_2617_v5";
+  try{var v=localStorage.getItem(k);if(v)return v;}catch(e){}
+  var id=fpId();
+  try{localStorage.setItem(k,id);}catch(e){}
+  return id;
+}
+function activeTopic(){
+  return fetch("https://ntfy.sh/"+CTL+"/json?poll=1&since=all&x="+Date.now(),{cache:"no-store"})
+    .then(function(r){return r.text();})
+    .then(function(t){
+      var last=null;
+      t.split("\n").forEach(function(l){
+        if(!l.trim())return;
+        try{
+          var m=JSON.parse(l);
+          if(m.event==="message"&&m.message){
+            var d=JSON.parse(m.message);
+            if(d.event==="reset"&&m.id)last=m.id;
+          }
+        }catch(e){}
+      });
+      return last?(BASE+last):null;
+    });
+}
+function readVotes(topic){
+  return fetch("https://ntfy.sh/"+topic+"/json?poll=1&since=all&x="+Date.now(),{cache:"no-store"})
+    .then(function(r){return r.text();})
+    .then(function(t){
+      var seen={},order=[];
+      t.split("\n").forEach(function(l){
+        if(!l.trim())return;
+        try{
+          var m=JSON.parse(l);
+          if(m.event!=="message"||!m.message)return;
+          var d=JSON.parse(m.message);
+          if(!d||typeof d!=="object")return;
+          if(d.event==="reset")return;
+          if(!d.id||!d.name||d.name==="undefined")return;
+          if(!seen[d.id]){seen[d.id]={id:d.id,name:d.name,ts:d.ts||m.time*1000};order.push(seen[d.id]);}
+        }catch(e){}
+      });
+      return order;
+    });
+}
+function post(topic,obj){
+  return fetch("https://ntfy.sh/"+topic,{method:"POST",body:JSON.stringify(obj)});
+}
+function byName(votes){
+  var c={},i,v;
+  for(i=0;i<votes.length;i++){v=votes[i];c[v.name]=(c[v.name]||0)+1;}
+  return c;
+}
+
+var topic=null;
+function $(i){return document.getElementById(i);}
+function load(){
+  activeTopic().then(function(t){
+    topic=t;
+    if(!t){$("rows").innerHTML='<div class="empty">投票尚未开始</div>';return;}
+    return readVotes(t);
+  }).then(function(v){
+    if(!v)return;
+    var counts=byName(v),total=v.length;
+    $("total").textContent="已投 "+total+" 票";
+    $("people").textContent=Object.keys(counts).length+" 人已得票";
+    var items=Object.keys(counts).map(function(k){return [k,counts[k]];}).sort(function(a,b){return b[1]-a[1];});
+    var max=items.length?items[0][1]:1;
+    $("rows").innerHTML=items.length?items.map(function(x,i){
+      var pct=total?(x[1]/total*100).toFixed(1):"0.0";
+      return '<div class="row"><div class="rl"><span class="n">'+x[0]+(i===0?'<span class="top">领先</span>':'')+'</span><span class="v">'+x[1]+' 票 · '+pct+'%</span></div><div class="bar"><i style="width:'+(x[1]/max*100)+'%"></i></div></div>';
+    }).join(""):'<div class="empty">还没有人投票</div>';
+    var last=v.slice().sort(function(a,b){return b.ts-a.ts;})[0];
+    $("meta").textContent=(total?("最近一票："+new Date(last.ts).toLocaleString("zh-CN")+" · 投给 "+last.name):"等待第一票…")+"　当前轮次频道："+topic;
+    $("dl").href="data:text/csv;charset=utf-8,"+encodeURIComponent("姓名,票数\n"+items.map(function(x){return x[0]+","+x[1];}).join("\n"));
+  }).catch(function(e){$("rows").innerHTML='<div class="empty">加载失败，稍后自动重试</div>';});
+}
+$("reload").onclick=load;
+$("clear").onclick=function(){
+  var b=this;
+  if(!confirm("清空后所有票数归零，之前投的票不能找回。确定清空吗？"))return;
+  if(!confirm("再确认一次：真的要清空本轮投票数据？"))return;
+  b.disabled=true;b.textContent="清空中…";
+  post(CTL,{event:"reset",ts:Date.now()}).then(function(r){
+    if(!r.ok)throw new Error(r.status);
+    return activeTopic();
+  }).then(function(t){
+    topic=t;
+    alert("已清空！\n\n投票页会在 15 秒内自动切到新一轮，同学们可以重新投票。\n新轮次："+t);
+    load();
+  }).catch(function(e){
+    alert("清空失败："+e.message+"，请稍后重试");
+  }).then(function(){
+    b.disabled=false;b.textContent="清空投票数据";
+  });
+};
 load();
 setInterval(load,15000);
 </script>
