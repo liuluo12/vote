@@ -71,23 +71,26 @@ box-shadow:0 1px 4px rgba(20,40,80,.06);cursor:pointer;transition:.18s}
 <script>
 var BASE="2617vote-", CTL="2617vote-ctl";
 
-function activeTopic(){
+function ctlLatest(){
   return fetch("https://ntfy.sh/"+CTL+"/json?poll=1&since=all&x="+Date.now(),{cache:"no-store"})
     .then(function(r){return r.text();})
     .then(function(t){
-      var last=null;
+      var out={reset:null,names:null};
       t.split("\n").forEach(function(l){
         if(!l.trim())return;
         try{
           var m=JSON.parse(l);
-          if(m.event==="message"&&m.message){
-            var d=JSON.parse(m.message);
-            if(d.event==="reset"&&m.id)last=m.id;
-          }
+          if(m.event!=="message"||!m.message)return;
+          var d=JSON.parse(m.message);
+          if(d.event==="reset"&&m.id)out.reset=m.id;
+          if(d.event==="names"&&Array.isArray(d.list)&&d.list.length)out.names=d.list;
         }catch(e){}
       });
-      return last?(BASE+last):null;
+      return out;
     });
+}
+function activeTopic(){
+  return ctlLatest().then(function(i){return i.reset?(BASE+i.reset):null;});
 }
 function readVotes(topic){
   return fetch("https://ntfy.sh/"+topic+"/json?poll=1&since=all&x="+Date.now(),{cache:"no-store"})
@@ -103,7 +106,7 @@ function readVotes(topic){
           if(!d||typeof d!=="object")return;
           if(d.event==="reset")return;
           if(!d.h||!d.name||d.name==="undefined"||d.h==="undefined")return;
-          if(!seen[d.h]){seen[d.h]={h:d.h,name:d.name,ts:d.ts||m.time*1000,dv:d.dv||"",dup:d.dup||0};order.push(seen[d.h]);}
+          if(!seen[d.h]){seen[d.h]={h:d.h,name:d.name,ts:d.ts||m.time*1000,dv:d.dv||"",md:d.md||"",imp:d.imp||0};order.push(seen[d.h]);}
         }catch(e){}
       });
       return order;
@@ -166,7 +169,7 @@ function $(i){return document.getElementById(i);}
 function hashOf(c){return sha256hex(c);}
 function claim(card,code){
   card.classList.add("pick");
-  setTimeout(function(){location.href="index.html?c="+encodeURIComponent(code);},120);
+  setTimeout(function(){location.href="index.html?v=16&c="+encodeURIComponent(code);},120);
 }
 function render(){
   var pool=$("pool");
