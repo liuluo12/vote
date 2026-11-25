@@ -75,7 +75,7 @@ function ctlLatest(){
   return fetch("https://ntfy.sh/"+CTL+"/json?poll=1&since=all&x="+Date.now(),{cache:"no-store"})
     .then(function(r){return r.text();})
     .then(function(t){
-      var out={reset:null,names:null};
+      var out={reset:null,names:null,title:"",sub:""};
       t.split("\n").forEach(function(l){
         if(!l.trim())return;
         try{
@@ -84,6 +84,10 @@ function ctlLatest(){
           var d=JSON.parse(m.message);
           if(d.event==="reset"&&m.id)out.reset=m.id;
           if(d.event==="names"&&Array.isArray(d.list)&&d.list.length)out.names=d.list;
+          if(d.event==="config"){
+            if(typeof d.title==="string")out.title=d.title;
+            if(typeof d.sub==="string")out.sub=d.sub;
+          }
         }catch(e){}
       });
       return out;
@@ -169,7 +173,7 @@ function $(i){return document.getElementById(i);}
 function hashOf(c){return sha256hex(c);}
 function claim(card,code){
   card.classList.add("pick");
-  setTimeout(function(){location.href="index.html?v=17&c="+encodeURIComponent(code);},120);
+  setTimeout(function(){location.href="index.html?v=18&c="+encodeURIComponent(code);},120);
 }
 function render(){
   var pool=$("pool");
