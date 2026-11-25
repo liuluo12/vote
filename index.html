@@ -44,24 +44,28 @@ a.dl{color:#2f6bff;font-size:13px;margin-left:10px;text-decoration:none}
 .toast{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);background:rgba(20,30,50,.9);color:#fff;padding:12px 20px;border-radius:12px;font-size:15px;opacity:0;transition:.25s;pointer-events:none;z-index:9}
 
 body{padding-bottom:96px}
-.hint{font-size:14px;color:#5b6b84;margin:0 4px 0}
+.hint{font-size:14px;color:#5b6b84;margin:0 4px}
 .hint b{color:#16202e;font-size:15px}
 .hint a{color:#2f6bff;font-size:13px;margin-left:8px;text-decoration:none}
-#step1,#step2{padding:14px}
+#step0,#step1,#step2{padding:14px}
+.codebox{width:100%;border:0;border-radius:14px;padding:16px;font-size:22px;letter-spacing:6px;text-align:center;text-transform:uppercase;background:#fff;box-shadow:0 2px 8px rgba(20,40,80,.06);outline:none;font-weight:700}
+.go{width:100%;margin-top:12px;border:0;border-radius:14px;padding:15px;font-size:16px;font-weight:700;color:#fff;background:linear-gradient(135deg,#2f6bff,#00a6ff)}
+.tip{font-size:12px;color:#93a1b7;margin-top:10px;line-height:1.7;text-align:center}
 </style></head><body>
 <header>
   <h1>2617班 · 人员投票</h1>
-  <div class="sub">第 1 步选自己，第 2 步投给 1 人（每人只有一票）</div>
+  <div class="sub">匿名投票：先输入你的口令，再投给 1 人（每人一票）</div>
   <div class="pill" id="total">已投 0 票</div>
 </header>
-<div id="step1">
-  <div class="hint">第 1 步：<b>点你自己的名字</b>（用来保证一人一票）</div>
-  <div style="margin-top:12px"><input class="search" id="q1" placeholder="搜索你的姓名…" autocomplete="off"></div>
-  <div class="grid" id="grid1"></div>
+<div id="step0">
+  <div class="hint"><b>第 1 步：输入你的口令</b></div>
+  <div style="margin-top:12px"><input class="codebox" id="code" placeholder="XXXXXX" maxlength="6" autocomplete="off"></div>
+  <button class="go" id="check">验证口令</button>
+  <div class="tip">口令是老师发给你的一串 6 位字符（如 9W6JLT）<br>每个口令只能用一次；系统只记录口令，不记录你的姓名</div>
 </div>
-<div id="step2" style="display:none">
-  <div class="hint">第 2 步：<b>投给谁？</b>（当前投票人：<span id="who"></span>）<a href="#" id="back">不是我，重选</a></div>
-  <div style="margin-top:12px"><input class="search" id="q2" placeholder="搜索要投的人…" autocomplete="off"></div>
+<div id="step1" style="display:none">
+  <div class="hint"><b>第 2 步：投给谁？</b><a href="#" id="back">换口令</a></div>
+  <div style="margin-top:12px"><input class="search" id="q2" placeholder="搜索姓名…" autocomplete="off"></div>
   <div class="grid" id="grid2"></div>
 </div>
 <div id="done"><div class="big">🎉</div><div class="thanks">投票成功</div><div class="t2" id="t2"></div><div class="t2">感谢你的参与</div></div>
@@ -104,8 +108,8 @@ function readVotes(topic){
           var d=JSON.parse(m.message);
           if(!d||typeof d!=="object")return;
           if(d.event==="reset")return;
-          if(!d.voter||!d.name||d.name==="undefined"||d.voter==="undefined")return;
-          if(!seen[d.voter]){seen[d.voter]={voter:d.voter,name:d.name,ts:d.ts||m.time*1000};order.push(seen[d.voter]);}
+          if(!d.h||!d.name||d.name==="undefined"||d.h==="undefined")return;
+          if(!seen[d.h]){seen[d.h]={h:d.h,name:d.name,ts:d.ts||m.time*1000};order.push(seen[d.h]);}
         }catch(e){}
       });
       return order;
@@ -120,101 +124,94 @@ function byName(votes){
   return c;
 }
 
-var all=[],votes=[],topic=null,voter=null,target=null;
+var all=[],votes=[],topic=null,hashes=[],myHash=null,target=null;
 function $(i){return document.getElementById(i);}
 function toast(t){var e=$("toast");e.textContent=t;e.style.opacity=1;clearTimeout(e._t);e._t=setTimeout(function(){e.style.opacity=0},1800);}
-function draw(el,list,sel,onclick){
+async function sha256(s){
+  var buf=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(s));
+  return Array.from(new Uint8Array(buf)).map(function(b){return ("0"+b.toString(16)).slice(-2);}).join("");
+}
+function draw(list,sel,onclick){
+  var el=$("grid2");
   el.innerHTML=(list&&list.length)?list.map(function(n){return '<div class="card" data-n="'+n+'">'+n+'</div>';}).join(""):'<div style="grid-column:1/-1;text-align:center;color:#93a1b7;padding:26px">没有匹配的姓名</div>';
   [].forEach.call(el.querySelectorAll(".card"),function(d){
     if(d.dataset.n===sel)d.classList.add("on");
     d.onclick=function(){onclick(d.dataset.n);};
   });
 }
-function votedNames(){
-  var m={};votes.forEach(function(v){m[v.voter]=v.name;});return m;
-}
-function step1(){
-  voter=null;target=null;
-  $("step1").style.display="block";$("step2").style.display="none";
-  $("done").style.display="none";$("foot").style.display="none";
-  var vm=votedNames();
-  draw($("grid1"),all,null,function(n){
-    if(vm[n]){toast(n+" 已经投过票了");showDone(n,vm[n]);return;}
-    voter=n;step2();
-  });
-}
-function step2(){
-  $("step1").style.display="none";$("step2").style.display="block";
-  $("done").style.display="none";$("foot").style.display="flex";
-  $("who").textContent=voter;
-  $("sel").textContent="请选择要投的人";$("submit").disabled=true;target=null;
-  draw($("grid2"),all,null,function(n){
-    target=n;$("sel").innerHTML="投给：<b>"+n+"</b>";$("submit").disabled=false;
-    draw($("grid2"),all,target,arguments.callee?null:null);
-    [].forEach.call($("grid2").querySelectorAll(".card"),function(d){if(d.dataset.n===target)d.classList.add("on");});
-  });
-}
-function showDone(v,n,total){
-  $("step1").style.display="none";$("step2").style.display="none";
+function showDone(name,total){
+  $("step0").style.display="none";$("step1").style.display="none";$("step2").style.display="none";
   $("foot").style.display="none";$("done").style.display="block";
-  $("t2").textContent=(v?v+" 投给了："+n:"你投给了："+n);
+  $("t2").textContent="你投给了："+name;
   if(total!==undefined&&total!==null)$("total").textContent="已投 "+total+" 票";
+  try{localStorage.setItem("vote_hash_2617",myHash||"");localStorage.setItem("vote_pick_2617",name);}catch(e){}
+}
+function enterStep1(){
+  $("step0").style.display="none";$("done").style.display="none";$("step2").style.display="none";
+  $("step1").style.display="block";$("foot").style.display="flex";
+  $("sel").textContent="请选择要投的人";$("submit").disabled=true;target=null;
+  draw(all,null,pick);
+}
+function pick(n){
+  target=n;$("sel").innerHTML="投给：<b>"+n+"</b>";$("submit").disabled=false;
+  [].forEach.call($("grid2").querySelectorAll(".card"),function(d){d.classList.toggle("on",d.dataset.n===n);});
 }
 function refresh(){
-  if(!topic)return Promise.resolve();
+  if(!topic)return Promise.resolve([]);
   return readVotes(topic).then(function(v){
-    votes=v;$("total").textContent="已投 "+v.length+" 票";
-    return v;
-  }).catch(function(){});
+    votes=v;$("total").textContent="已投 "+v.length+" 票";return v;
+  }).catch(function(){return [];});
 }
-function boot(){
-  Promise.all([
-    fetch("names.json?x="+Date.now()).then(function(r){return r.json();}).catch(function(){return [];}),
-    activeTopic()
-  ]).then(function(res){
-    all=(res[0]||[]).filter(function(x){return typeof x==="string"&&x.trim()&&x.trim()!=="undefined";}).map(function(x){return x.trim();});
-    topic=res[1];
-    if(!topic){toast("投票尚未开始");return;}
-    refresh().then(function(){
-      var mine=localStorage.getItem("vote_voter_2617");
-      var vm=votedNames();
-      if(mine&&vm[mine]){showDone(mine,vm[mine],votes.length);}
-      else step1();
-    });
-  });
+async function boot(){
+  try{hashes=(await (await fetch("hashes.json?x="+Date.now())).json()).hashes||[];}catch(e){hashes=[];}
+  try{all=(await (await fetch("names.json?x="+Date.now())).json()).filter(function(x){return typeof x==="string"&&x.trim();}).map(function(x){return x.trim();});}catch(e){all=[];}
+  topic=await activeTopic();
+  if(!topic){toast("投票尚未开始");return;}
+  await refresh();
+  var saved=null;
+  try{saved=localStorage.getItem("vote_hash_2617");}catch(e){}
+  if(saved){
+    myHash=saved;
+    var mine=votes.filter(function(x){return x.h===saved;})[0];
+    if(mine){showDone(mine.name,votes.length);return;}
+  }
+  $("step0").style.display="block";$("step1").style.display="none";$("done").style.display="none";
 }
-$("q1").addEventListener("input",function(e){
-  var k=e.target.value.trim();
-  draw($("grid1"),k?all.filter(function(n){return n.indexOf(k)>=0;}):all,null,function(n){
-    if(votedNames()[n]){toast(n+" 已经投过票了");return;}
-    voter=n;step2();
-  });
+$("code").addEventListener("input",function(e){
+  e.target.value=e.target.value.toUpperCase().replace(/[^0-9A-Z]/g,"");
 });
+$("check").addEventListener("click",async function(){
+  var c=($("code").value||"").trim().toUpperCase();
+  if(c.length<6){toast("口令是 6 位");return;}
+  var h=await sha256(c);
+  if(!hashes.length){toast("口令表加载失败，请刷新");return;}
+  if(hashes.indexOf(h)<0){toast("口令无效，请核对");return;}
+  var used=votes.filter(function(x){return x.h===h;})[0];
+  if(used){toast("这个口令已经用过了");showDone(used.name,votes.length);return;}
+  myHash=h;enterStep1();
+});
+$("back").addEventListener("click",function(e){e.preventDefault();myHash=null;target=null;
+  $("step1").style.display="none";$("foot").style.display="none";$("step0").style.display="block";});
 $("q2").addEventListener("input",function(e){
   var k=e.target.value.trim();
-  draw($("grid2"),k?all.filter(function(n){return n.indexOf(k)>=0;}):all,target,function(n){
-    target=n;$("sel").innerHTML="投给：<b>"+n+"</b>";$("submit").disabled=false;
-    [].forEach.call($("grid2").querySelectorAll(".card"),function(d){d.classList.toggle("on",d.dataset.n===n);});
-  });
+  draw(k?all.filter(function(n){return n.indexOf(k)>=0;}):all,target,pick);
 });
-$("back").addEventListener("click",function(e){e.preventDefault();step1();});
 $("submit").addEventListener("click",function(){
-  if(!voter||!target)return;
-  if(!confirm("确认用【"+voter+"】的身份，投给【"+target+"】？\n提交后不能修改"))return;
+  if(!myHash||!target)return;
+  if(!confirm("确认投给 "+target+" ？提交后不能修改"))return;
   var b=$("submit");b.disabled=true;b.textContent="提交中…";
-  post(topic,{voter:voter,name:target,ts:Date.now()}).then(function(r){
+  post(topic,{h:myHash,name:target,ts:Date.now()}).then(function(r){
     if(!r.ok)throw new Error(r.status);
-    return readVotes(topic);
+    return refresh();
   }).then(function(v){
-    votes=v;
-    var mine=v.filter(function(x){return x.voter===voter;})[0];
-    try{localStorage.setItem("vote_voter_2617",voter);}catch(e){}
-    showDone(voter,mine?mine.name:target,v.length);
+    showDone(target,v.length);
   }).catch(function(){toast("提交失败，请重试");b.disabled=false;b.textContent="投票";});
 });
 setInterval(function(){
   activeTopic().then(function(t){
-    if(t&&topic&&t!==topic){topic=t;toast("投票已重置，请重新投票");try{localStorage.removeItem("vote_voter_2617");}catch(e){}step1();refresh();}
+    if(t&&topic&&t!==topic){topic=t;toast("投票已重置，请重新投票");
+      try{localStorage.removeItem("vote_hash_2617");localStorage.removeItem("vote_pick_2617");}catch(e){}
+      myHash=null;target=null;$("step0").style.display="block";$("step1").style.display="none";$("done").style.display="none";$("foot").style.display="none";$("code").value="";refresh();}
     else refresh();
   }).catch(function(){});
 },15000);
