@@ -45,44 +45,29 @@ a.dl{color:#2f6bff;font-size:13px;margin-left:10px;text-decoration:none}
 
 header{background:linear-gradient(135deg,#1e2a3a,#2f6bff)}
 main{padding:16px}
+h2{font-size:15px;margin:20px 0 8px;color:#5b6b84}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.chip{background:#fff;border-radius:8px;padding:4px 9px;font-size:13px;color:#3a4a63;box-shadow:0 1px 3px rgba(20,40,80,.06)}
+.chip.ok{background:#e7f7ef;color:#0a7a4f}
 </style></head><body>
 <header>
   <h1>2617班 · 票数后台</h1>
-  <div class="sub">实时统计（每 15 秒自动刷新）</div>
-  <div><span class="pill" id="total">已投 0 票</span><span class="pill" id="people">0 人已得票</span></div>
+  <div class="sub">每 15 秒自动刷新</div>
+  <div><span class="pill" id="total">已投 0 票</span><span class="pill" id="people">0 人已投票</span></div>
 </header>
 <main>
+  <h2>得票排行</h2>
   <div class="rows" id="rows"><div class="empty">加载中…</div></div>
+  <h2>投票进度 <span id="prog" style="font-weight:400;color:#93a1b7"></span></h2>
+  <div class="chips" id="chips"></div>
   <div class="meta" id="meta"></div>
   <button class="act" id="reload">手动刷新</button>
   <a class="dl" id="dl" download="2617票数.csv">导出 CSV</a>
   <button class="act clear" id="clear">清空投票数据</button>
 </main>
 <script>
-var BASE="2617vote-", CTL="2617vote-ctl";
-var FPPARTS=[];
-function uaBase(){
-  return (navigator.userAgent||"").replace(/\/[0-9.]+/g,"").replace(/\([^)]*\)/g,"")
-    .replace(/Chrome|Chromium|Firefox|Safari|Edg[A-Za-z]*|OPR|Opera|MicroMessenger|QQBrowser|UCBrowser|Mobile|Android|Linux|Windows|iPhone|iPad|Macintosh|wv|;|\s/gi,"");
-}
-function fpId(){
-  var ua=uaBase();
-  FPPARTS=[ua,screen.width+"x"+screen.height,navigator.hardwareConcurrency||0,navigator.deviceMemory||0,navigator.maxTouchPoints||0];
-  var raw=FPPARTS.join("|"),h=5381,i;
-  for(i=0;i<raw.length;i++)h=((h*33)^raw.charCodeAt(i))>>>0;
-  return "d"+h.toString(36);
-}
-function devLine(){
-  if(!FPPARTS.length)fpId();
-  return "设备号 "+deviceId()+" ｜ UA特征 "+(FPPARTS[0]||"-")+" ｜ 屏幕 "+FPPARTS[1]+" ｜ "+(navigator.hardwareConcurrency||"?")+"核 ｜ 内存 "+(navigator.deviceMemory||"?")+"GB ｜ 触屏 "+(navigator.maxTouchPoints||0);
-}
-function deviceId(){
-  var k="vote_devid_2617_v5";
-  try{var v=localStorage.getItem(k);if(v)return v;}catch(e){}
-  var id=fpId();
-  try{localStorage.setItem(k,id);}catch(e){}
-  return id;
-}
+var BASE="__BASE__", CTL="__CTL__";
+
 function activeTopic(){
   return fetch("https://ntfy.sh/"+CTL+"/json?poll=1&since=all&x="+Date.now(),{cache:"no-store"})
     .then(function(r){return r.text();})
@@ -114,8 +99,8 @@ function readVotes(topic){
           var d=JSON.parse(m.message);
           if(!d||typeof d!=="object")return;
           if(d.event==="reset")return;
-          if(!d.id||!d.name||d.name==="undefined")return;
-          if(!seen[d.id]){seen[d.id]={id:d.id,name:d.name,ts:d.ts||m.time*1000};order.push(seen[d.id]);}
+          if(!d.voter||!d.name||d.name==="undefined"||d.voter==="undefined")return;
+          if(!seen[d.voter]){seen[d.voter]={voter:d.voter,name:d.name,ts:d.ts||m.time*1000};order.push(seen[d.voter]);}
         }catch(e){}
       });
       return order;
@@ -130,28 +115,42 @@ function byName(votes){
   return c;
 }
 
-var topic=null;
+var topic=null,all=[];
 function $(i){return document.getElementById(i);}
+function loadAll(){
+  return fetch("names.json?x="+Date.now()).then(function(r){return r.json();}).catch(function(){return [];});
+}
+function render(v){
+  var counts=byName(v),total=v.length;
+  $("total").textContent="已投 "+total+" 票";
+  $("people").textContent=total+" 人已投票";
+  var items=Object.keys(counts).map(function(k){return [k,counts[k]];}).sort(function(a,b){return b[1]-a[1];});
+  var max=items.length?items[0][1]:1;
+  $("rows").innerHTML=items.length?items.map(function(x,i){
+    var pct=total?(x[1]/total*100).toFixed(1):"0.0";
+    return '<div class="row"><div class="rl"><span class="n">'+x[0]+(i===0?'<span class="top">领先</span>':'')+'</span><span class="v">'+x[1]+' 票 · '+pct+'%</span></div><div class="bar"><i style="width:'+(x[1]/max*100)+'%"></i></div></div>';
+  }).join(""):'<div class="empty">还没有人投票</div>';
+  var voted={};v.forEach(function(x){voted[x.voter]=x.name;});
+  var notYet=all.filter(function(n){return !voted[n];});
+  $("prog").textContent="　已投 "+total+" / "+all.length+" 人";
+  var html="";
+  all.forEach(function(n){
+    html+=voted[n]?'<span class="chip ok">'+n+' ✓</span>':'<span class="chip">'+n+'</span>';
+  });
+  $("chips").innerHTML=html;
+  var last=v.slice().sort(function(a,b){return b.ts-a.ts;})[0];
+  $("meta").textContent=(last?("最近一票："+new Date(last.ts).toLocaleString("zh-CN")+" · "+last.voter+" 投给 "+last.name):"等待第一票…")+"　|　还没投票："+(notYet.length?notYet.join("、"):"无")+"　|　轮次："+topic;
+  $("dl").href="data:text/csv;charset=utf-8,"+encodeURIComponent("姓名,票数\n"+items.map(function(x){return x[0]+","+x[1];}).join("\n")+"\n\n已投票,"+Object.keys(voted).join(" ")+"\n未投票,"+notYet.join(" "));
+}
 function load(){
   activeTopic().then(function(t){
     topic=t;
-    if(!t){$("rows").innerHTML='<div class="empty">投票尚未开始</div>';return;}
-    return readVotes(t);
-  }).then(function(v){
-    if(!v)return;
-    var counts=byName(v),total=v.length;
-    $("total").textContent="已投 "+total+" 票";
-    $("people").textContent=Object.keys(counts).length+" 人已得票";
-    var items=Object.keys(counts).map(function(k){return [k,counts[k]];}).sort(function(a,b){return b[1]-a[1];});
-    var max=items.length?items[0][1]:1;
-    $("rows").innerHTML=items.length?items.map(function(x,i){
-      var pct=total?(x[1]/total*100).toFixed(1):"0.0";
-      return '<div class="row"><div class="rl"><span class="n">'+x[0]+(i===0?'<span class="top">领先</span>':'')+'</span><span class="v">'+x[1]+' 票 · '+pct+'%</span></div><div class="bar"><i style="width:'+(x[1]/max*100)+'%"></i></div></div>';
-    }).join(""):'<div class="empty">还没有人投票</div>';
-    var last=v.slice().sort(function(a,b){return b.ts-a.ts;})[0];
-    $("meta").textContent=(total?("最近一票："+new Date(last.ts).toLocaleString("zh-CN")+" · 投给 "+last.name):"等待第一票…")+"　当前轮次频道："+topic;
-    $("dl").href="data:text/csv;charset=utf-8,"+encodeURIComponent("姓名,票数\n"+items.map(function(x){return x[0]+","+x[1];}).join("\n"));
-  }).catch(function(e){$("rows").innerHTML='<div class="empty">加载失败，稍后自动重试</div>';});
+    if(!t){$("rows").innerHTML='<div class="empty">投票尚未开始</div>';return null;}
+    return Promise.all([readVotes(t),all.length?Promise.resolve(all):loadAll()]);
+  }).then(function(res){
+    if(!res)return;
+    all=res[1];render(res[0]);
+  }).catch(function(){$("rows").innerHTML='<div class="empty">加载失败，稍后自动重试</div>';});
 }
 $("reload").onclick=load;
 $("clear").onclick=function(){
@@ -164,13 +163,9 @@ $("clear").onclick=function(){
     return activeTopic();
   }).then(function(t){
     topic=t;
-    alert("已清空！\n\n投票页会在 15 秒内自动切到新一轮，同学们可以重新投票。\n新轮次："+t);
+    alert("已清空！\n\n投票页 15 秒内自动切到新一轮，同学们可以重新投票。\n新轮次："+t);
     load();
-  }).catch(function(e){
-    alert("清空失败："+e.message+"，请稍后重试");
-  }).then(function(){
-    b.disabled=false;b.textContent="清空投票数据";
-  });
+  }).catch(function(e){alert("清空失败："+e.message);}).then(function(){b.disabled=false;b.textContent="清空投票数据";});
 };
 load();
 setInterval(load,15000);
