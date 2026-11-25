@@ -52,6 +52,10 @@ code{background:#f0f3f8;padding:1px 5px;border-radius:4px;font-size:12px}
 .hrow{display:flex;justify-content:space-between;font-size:14px;padding:7px 0;border-bottom:1px solid #f0f3f8}
 .hrow:last-child{border-bottom:0}
 .mini{font-size:12px;color:#93a1b7}
+.fld{margin-top:10px;font-size:13px;color:#5b6b84}
+.tin{width:100%;border:1px solid #dfe6f1;border-radius:10px;padding:10px;font-size:14px;margin-top:6px;outline:none;background:#fff}
+.chip{position:relative;padding-right:20px}
+.chip .x{color:#e5484d;font-weight:700;margin-left:6px;cursor:pointer}
 .note{background:#fff;border-radius:12px;padding:12px 14px;font-size:13px;color:#5b6b84;line-height:1.7;box-shadow:0 1px 4px rgba(20,40,80,.06)}
 </style></head><body>
 <header>
@@ -69,17 +73,35 @@ code{background:#f0f3f8;padding:1px 5px;border-radius:4px;font-size:12px}
   <a class="dl" id="dl" download="2617票数.csv">导出 CSV</a>
   <button class="act clear" id="clear">清空投票数据</button>
 
-  <h2>数据导入</h2>
+  <h2>投票设置</h2>
+  <div class="note">
+    <div class="fld"><span>标题</span><input class="tin" id="ttl" placeholder="例如：2617班 优秀学生评选"></div>
+    <div class="fld"><span>副标题</span><input class="tin" id="sub" placeholder="例如：请从名单中选出 1 人（每台设备一票）"></div>
+    <button class="act" id="saveCfg">保存标题</button>
+    <div class="mini" style="margin-top:8px">保存后，同学刷新投票页即生效。</div>
+  </div>
+
+  <h2>名单管理 <span class="mini" id="cnt"></span></h2>
+  <div class="note">
+    <div class="chips" id="nameList"><span class="mini">加载中…</span></div>
+    <div class="fld" style="display:flex;gap:8px;margin-top:12px">
+      <input class="tin" id="newName" placeholder="输入姓名，回车或点添加" style="flex:1">
+      <button class="act" id="addName" style="margin-top:0">添加</button>
+    </div>
+    <button class="act" id="saveNames">保存名单</button>
+    <button class="act clear" id="resetNames">恢复默认 59 人</button>
+    <div class="mini" style="margin-top:8px">点姓名上的 ✕ 删除；保存后同学刷新投票页生效。</div>
+  </div>
+
+  <h2>导入数据</h2>
   <div class="note">
     <div style="line-height:1.9;font-size:13px">
-      <b>① 投票记录</b>：每行 <code>姓名,票数</code>，票数可省略（默认 1）<br>
-      <b>② 名单</b>：每行一个姓名（或 CSV 第一列），导入后同学刷新页面生效<br>
-      <b>③ 历史结果</b>：粘贴之前导出的 CSV，用于和本轮对比
+      <b>① 投票记录</b>：每行 <code>姓名,票数</code>（票数省略=1）<br>
+      <b>③ 历史结果</b>：粘贴之前导出的 CSV，和本轮对比
     </div>
-    <textarea id="imp" placeholder="在这里粘贴内容，然后点下面某个按钮" style="width:100%;height:110px;margin-top:10px;border:1px solid #dfe6f1;border-radius:10px;padding:10px;font-size:13px"></textarea>
+    <textarea id="imp" placeholder="在这里粘贴内容，然后点下面的按钮" style="width:100%;height:110px;margin-top:10px;border:1px solid #dfe6f1;border-radius:10px;padding:10px;font-size:13px"></textarea>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
       <button class="act" id="impVote">① 导入投票记录</button>
-      <button class="act" id="impNames">② 导入名单</button>
       <button class="act" id="impHist">③ 导入历史结果</button>
       <button class="act clear" id="clrHist">清空历史对比</button>
     </div>
@@ -95,7 +117,7 @@ function ctlLatest(){
   return fetch("https://ntfy.sh/"+CTL+"/json?poll=1&since=all&x="+Date.now(),{cache:"no-store"})
     .then(function(r){return r.text();})
     .then(function(t){
-      var out={reset:null,names:null};
+      var out={reset:null,names:null,title:"",sub:""};
       t.split("\n").forEach(function(l){
         if(!l.trim())return;
         try{
@@ -104,6 +126,10 @@ function ctlLatest(){
           var d=JSON.parse(m.message);
           if(d.event==="reset"&&m.id)out.reset=m.id;
           if(d.event==="names"&&Array.isArray(d.list)&&d.list.length)out.names=d.list;
+          if(d.event==="config"){
+            if(typeof d.title==="string")out.title=d.title;
+            if(typeof d.sub==="string")out.sub=d.sub;
+          }
         }catch(e){}
       });
       return out;
@@ -214,17 +240,6 @@ function importVotes(){
   }
   next();
 }
-function importNames(){
-  var rows=parseRows($("imp").value);
-  var list=rows.map(function(p){return p[0];}).filter(function(x){return x&&!/^姓名$/.test(x);});
-  if(!list.length){alert("没解析到姓名");return;}
-  if(!confirm("导入 "+list.length+" 个姓名作为候选名单？\n同学刷新投票页后生效。"))return;
-  post(CTL,{event:"names",list:list,ts:Date.now()}).then(function(r){
-    if(!r.ok)throw new Error(r.status);
-    alert("已导入 "+list.length+" 个姓名。\n让同学刷新投票页即可看到新名单。");
-    $("imp").value="";
-  }).catch(function(e){alert("导入失败："+e.message);});
-}
 function histKey(){return "hist_2617_v1";}
 function getHist(){try{return JSON.parse(localStorage.getItem(histKey())||"[]");}catch(e){return [];}}
 function importHistory(){
@@ -262,12 +277,63 @@ function renderHist(counts){
     }).join("");
 }
 $("impVote").onclick=importVotes;
-$("impNames").onclick=importNames;
 $("impHist").onclick=importHistory;
 $("clrHist").onclick=function(){
   if(!confirm("清空本机保存的历史对比数据？"))return;
   try{localStorage.removeItem(histKey());}catch(e){}
   load();
+};
+var NAMES=[],DEF_NAMES=[];
+function loadNamesAdmin(){
+  return fetch("names.json?x="+Date.now()).then(function(r){return r.json();}).then(function(l){
+    DEF_NAMES=(l||[]).filter(function(x){return typeof x==="string"&&x.trim();}).map(function(x){return x.trim();});
+    return ctlLatest();
+  }).then(function(info){
+    NAMES=(info.names&&info.names.length)?info.names.slice():DEF_NAMES.slice();
+    if(info.title)$("ttl").value=info.title;
+    if(info.sub)$("sub").value=info.sub;
+    renderNames();
+    return NAMES;
+  }).catch(function(){NAMES=DEF_NAMES.slice();renderNames();return NAMES;});
+}
+function renderNames(){
+  $("cnt").textContent="（"+NAMES.length+" 人）";
+  $("nameList").innerHTML=NAMES.map(function(n,i){
+    return '<span class="chip">'+n+'<span class="x" data-i="'+i+'">✕</span></span>';
+  }).join("")||'<span class="mini">名单为空</span>';
+  [].forEach.call($("nameList").querySelectorAll(".x"),function(el){
+    el.onclick=function(){NAMES.splice(parseInt(el.dataset.i,10),1);renderNames();};
+  });
+}
+function addName(){
+  var v=($("newName").value||"").replace(/^\s+|\s+$/g,"");
+  if(!v)return;
+  if(NAMES.indexOf(v)>=0){alert("「"+v+"」已经在名单里");return;}
+  NAMES.push(v);
+  $("newName").value="";
+  renderNames();
+}
+$("addName").onclick=addName;
+$("newName").addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();addName();}});
+$("saveNames").onclick=function(){
+  if(!NAMES.length){alert("名单不能为空");return;}
+  var b=this;b.disabled=true;b.textContent="保存中…";
+  post(CTL,{event:"names",list:NAMES,ts:Date.now()}).then(function(r){
+    if(!r.ok)throw new Error(r.status);
+    alert("名单已保存："+NAMES.length+" 人。\n同学刷新投票页即可看到。");
+  }).catch(function(e){alert("保存失败："+e.message);}).then(function(){b.disabled=false;b.textContent="保存名单";});
+};
+$("resetNames").onclick=function(){
+  if(!DEF_NAMES.length){alert("默认名单还没加载好，请刷新");return;}
+  if(!confirm("恢复为默认的 "+DEF_NAMES.length+" 人名单？（保存后生效）"))return;
+  NAMES=DEF_NAMES.slice();renderNames();
+};
+$("saveCfg").onclick=function(){
+  var b=this;b.disabled=true;b.textContent="保存中…";
+  post(CTL,{event:"config",title:($("ttl").value||"").replace(/^\s+|\s+$/g,""),sub:($("sub").value||"").replace(/^\s+|\s+$/g,""),ts:Date.now()}).then(function(r){
+    if(!r.ok)throw new Error(r.status);
+    alert("标题已保存。\n同学刷新投票页即可看到。");
+  }).catch(function(e){alert("保存失败："+e.message);}).then(function(){b.disabled=false;b.textContent="保存标题";});
 };
 $("reload").onclick=load;
 $("clear").onclick=function(){
@@ -282,6 +348,7 @@ $("clear").onclick=function(){
    .then(function(){b.disabled=false;b.textContent="清空投票数据";});
 };
 load();
+loadNamesAdmin();
 setInterval(load,15000);
 </script>
 </body></html>
