@@ -5,27 +5,44 @@
 <title>2617班 · 投票</title>
 <style>
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-body{margin:0;font:16px/1.5 -apple-system,"PingFang SC","Noto Sans CJK SC",system-ui,sans-serif;background:#f2f4f8;color:#16202e;padding-bottom:96px}
+body{margin:0;font:16px/1.5 -apple-system,"PingFang SC","Noto Sans CJK SC",system-ui,sans-serif;background:#f2f4f8;color:#16202e}
 header{background:linear-gradient(135deg,#2f6bff,#00c2a8);color:#fff;padding:26px 20px 22px;border-radius:0 0 22px 22px}
-h1{margin:0;font-size:21px}.sub{margin-top:6px;font-size:13px;opacity:.92}
-.pill{display:inline-block;margin-top:12px;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.35);border-radius:999px;padding:4px 12px;font-size:13px}
+h1{margin:0;font-size:21px}
+.sub{margin-top:6px;font-size:13px;opacity:.92}
+.pill{display:inline-block;margin-top:12px;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.35);border-radius:999px;padding:4px 12px;font-size:13px;margin-right:8px}
 .wrap{padding:14px}
-.search{width:100%;border:0;border-radius:14px;padding:12px 14px;font-size:15px;background:#fff;box-shadow:0 2px 8px rgba(20,40,80,.06);outline:none}
+.search{width:100%;border:0;border-radius:14px;padding:12px 14px;font-size:15px;background:#fff;outline:none;box-shadow:0 2px 8px rgba(20,40,80,.06)}
 .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-top:14px}
 @media(max-width:360px){.grid{grid-template-columns:repeat(2,1fr)}}
-.card{background:#fff;border:2px solid transparent;border-radius:14px;padding:14px 4px;text-align:center;font-size:15px;font-weight:600;color:#1b2a41;box-shadow:0 1px 4px rgba(20,40,80,.06);transition:.15s;cursor:pointer;user-select:none}
-.card:active{transform:scale(.96)}
-.card.on{border-color:#2f6bff;background:#eef3ff;color:#1a4fd6;box-shadow:0 4px 14px rgba(47,107,255,.28)}
+.card{background:#fff;border:2px solid transparent;border-radius:14px;padding:14px 6px;text-align:center;font-size:15px;font-weight:600;color:#1b2a41;box-shadow:0 1px 4px rgba(20,40,80,.06);cursor:pointer;user-select:none;overflow-wrap:anywhere}
+.card.on{border-color:#2f6bff;background:#eef3ff;color:#1a4fd6}
 .card .idx{display:block;font-size:11px;font-weight:400;color:#9aa7bd;margin-top:2px}
-footer{position:fixed;left:0;right:0;bottom:0;padding:12px 14px calc(12px + env(safe-area-inset-bottom));background:rgba(255,255,255,.94);border-top:1px solid #e6eaf2;display:flex;align-items:center;gap:10px}
-.sel{flex:1;font-size:14px;color:#5b6b84}.sel b{color:#16202e;font-size:16px}
-.btn{border:0;border-radius:14px;padding:14px 22px;font-size:16px;font-weight:700;color:#fff;background:linear-gradient(135deg,#2f6bff,#00a6ff);box-shadow:0 6px 16px rgba(47,107,255,.35)}
-.btn:disabled{background:#c9d3e4;box-shadow:none;color:#f4f7fc}
-#done{display:none;text-align:center;padding:40px 20px}
+footer{position:fixed;left:0;right:0;bottom:0;padding:12px 14px calc(12px + env(safe-area-inset-bottom));background:rgba(255,255,255,.95);border-top:1px solid #e6eaf2;display:flex;align-items:center;gap:10px}
+.sel{flex:1;font-size:14px;color:#5b6b84}
+.sel b{color:#16202e;font-size:16px}
+.btn{border:0;border-radius:14px;padding:14px 22px;font-size:16px;font-weight:700;color:#fff;background:linear-gradient(135deg,#2f6bff,#00a6ff)}
+.btn:disabled{background:#c9d3e4}
+#done{display:none;text-align:center;padding:44px 20px}
 .big{font-size:52px;margin:0 0 10px}
 .thanks{font-size:18px;font-weight:700;color:#00a878}
 .t2{color:#5b6b84;font-size:14px;margin-top:6px}
+.rows{background:#fff;border-radius:16px;padding:6px 14px;box-shadow:0 2px 10px rgba(20,40,80,.06);margin-top:14px}
+.row{padding:11px 0;border-bottom:1px solid #f0f3f8}
+.row:last-child{border-bottom:0}
+.rl{display:flex;justify-content:space-between;align-items:baseline;font-size:15px}
+.n{font-weight:600}
+.v{color:#5b6b84;font-size:13px}
+.bar{height:9px;border-radius:6px;background:#eef1f7;overflow:hidden;margin-top:7px}
+.bar i{display:block;height:100%;border-radius:6px;background:linear-gradient(90deg,#2f6bff,#00c2a8);transition:width .4s}
+.top{color:#d97706;font-size:12px;margin-left:6px;font-weight:700}
+.empty{text-align:center;color:#93a1b7;padding:30px 0;font-size:14px}
+.meta{color:#8a97ac;font-size:12px;margin-top:14px;line-height:1.7;word-break:break-all}
+button.act{border:0;background:#2f6bff;color:#fff;border-radius:12px;padding:10px 18px;font-size:14px;font-weight:600;margin-top:14px}
+button.clear{background:#e5484d}
+a.dl{color:#2f6bff;font-size:13px;margin-left:10px;text-decoration:none}
 .toast{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);background:rgba(20,30,50,.9);color:#fff;padding:12px 20px;border-radius:12px;font-size:15px;opacity:0;transition:.25s;pointer-events:none;z-index:9}
+
+body{padding-bottom:96px}
 </style></head><body>
 <header>
   <h1>2617班 · 人员投票</h1>
@@ -36,71 +53,154 @@ footer{position:fixed;left:0;right:0;bottom:0;padding:12px 14px calc(12px + env(
   <input class="search" id="q" placeholder="搜索姓名…" autocomplete="off">
   <div class="grid" id="grid"></div>
 </div></div>
-<div id="done"><div class="big">🎉</div><div class="thanks" id="thanks">投票成功</div><div class="t2" id="t2"></div><div class="t2" id="t3">感谢你的参与</div></div>
+<div id="done"><div class="big">🎉</div><div class="thanks">投票成功</div><div class="t2" id="t2"></div><div class="t2" id="t3">感谢你的参与</div></div>
 <footer id="foot">
   <div class="sel" id="sel">请选择一个人</div>
   <button class="btn" id="submit" disabled>投票</button>
 </footer>
 <div class="toast" id="toast"></div>
 <script>
-const TOPIC="2617vote-4e9fe73a131a";
-let token=localStorage.getItem("vote_token_2617_r4");
-if(!token){token="t"+Date.now().toString(36)+Math.random().toString(36).slice(2,10);localStorage.setItem("vote_token_2617_r4",token);}
-let sel=null,cur=[],voted=null,all=[];
-const grid=document.getElementById("grid");
-function toast(t){const e=document.getElementById("toast");e.textContent=t;e.style.opacity=1;setTimeout(()=>e.style.opacity=0,1600);}
+var BASE="2617vote-", CTL="2617vote-ctl";
+function fpId(){
+  var ua=(navigator.userAgent||"").replace(/\/[0-9.]+/g,"").replace(/\([^)]*\)/g,"")
+    .replace(/Chrome|Chromium|Firefox|Safari|Edg[A-Za-z]*|OPR|Opera|MicroMessenger|QQBrowser|UCBrowser|Mobile|Android|Linux|Windows|iPhone|iPad|Macintosh|wv|;|\s/gi,"");
+  var parts=[ua,screen.width+"x"+screen.height,navigator.hardwareConcurrency||0,navigator.deviceMemory||0,navigator.maxTouchPoints||0];
+  var raw=parts.join("|"),h=5381,i;
+  for(i=0;i<raw.length;i++)h=((h*33)^raw.charCodeAt(i))>>>0;
+  return "d"+h.toString(36);
+}
+function deviceId(){
+  var k="vote_devid_2617_v5";
+  try{var v=localStorage.getItem(k);if(v)return v;}catch(e){}
+  var id=fpId();
+  try{localStorage.setItem(k,id);}catch(e){}
+  return id;
+}
+function activeTopic(){
+  return fetch("https://ntfy.sh/"+CTL+"/json?poll=1&since=all&x="+Date.now(),{cache:"no-store"})
+    .then(function(r){return r.text();})
+    .then(function(t){
+      var last=null;
+      t.split("\n").forEach(function(l){
+        if(!l.trim())return;
+        try{
+          var m=JSON.parse(l);
+          if(m.event==="message"&&m.message){
+            var d=JSON.parse(m.message);
+            if(d.event==="reset"&&m.id)last=m.id;
+          }
+        }catch(e){}
+      });
+      return last?(BASE+last):null;
+    });
+}
+function readVotes(topic){
+  return fetch("https://ntfy.sh/"+topic+"/json?poll=1&since=all&x="+Date.now(),{cache:"no-store"})
+    .then(function(r){return r.text();})
+    .then(function(t){
+      var seen={},order=[];
+      t.split("\n").forEach(function(l){
+        if(!l.trim())return;
+        try{
+          var m=JSON.parse(l);
+          if(m.event!=="message"||!m.message)return;
+          var d=JSON.parse(m.message);
+          if(!d||typeof d!=="object")return;
+          if(d.event==="reset")return;
+          if(!d.id||!d.name||d.name==="undefined")return;
+          if(!seen[d.id]){seen[d.id]={id:d.id,name:d.name,ts:d.ts||m.time*1000};order.push(seen[d.id]);}
+        }catch(e){}
+      });
+      return order;
+    });
+}
+function post(topic,obj){
+  return fetch("https://ntfy.sh/"+topic,{method:"POST",body:JSON.stringify(obj)});
+}
+function byName(votes){
+  var c={},i,v;
+  for(i=0;i<votes.length;i++){v=votes[i];c[v.name]=(c[v.name]||0)+1;}
+  return c;
+}
+
+var me=deviceId(),topic=null,sel=null,all=[],cur=[],voted=null;
+var grid=document.getElementById("grid");
+function $(i){return document.getElementById(i);}
+function toast(t){var e=$("toast");e.textContent=t;e.style.opacity=1;clearTimeout(e._t);e._t=setTimeout(function(){e.style.opacity=0},1800);}
 function render(list){
-  list=list.filter(function(x){return x&&x!=="undefined";});
-  grid.innerHTML=list.length?list.map(n=>'<div class="card" data-n="'+n+'">'+n+'<span class="idx">'+(all.indexOf(n)+1)+'</span></div>').join(""):'<div style="grid-column:1/-1;text-align:center;color:#93a1b7;padding:26px">没有匹配的姓名</div>';
-  [].forEach.call(grid.querySelectorAll(".card"),d=>{if(d.dataset.n===sel)d.classList.add("on");});
+  list=(list||[]).filter(function(x){return x&&x!=="undefined";});
+  if(!list.length){grid.innerHTML='<div style="grid-column:1/-1;text-align:center;color:#93a1b7;padding:26px">没有匹配的姓名</div>';return;}
+  grid.innerHTML=list.map(function(n){
+    var idx=all.indexOf(n)+1;
+    return '<div class="card" data-n="'+n+'">'+n+(idx?'<span class="idx">'+idx+'</span>':'')+'</div>';
+  }).join("");
+  [].forEach.call(grid.querySelectorAll(".card"),function(d){if(d.dataset.n===sel)d.classList.add("on");});
 }
-function finish(name,total){
-  voted=name;localStorage.setItem("vote_done_2617_r4",name);
-  document.getElementById("vote").style.display="none";
-  document.getElementById("foot").style.display="none";
-  document.getElementById("done").style.display="block";
-  document.getElementById("t2").textContent="你投给了："+name;
-  if(total!==null&&total!==undefined)document.getElementById("total").textContent="已投 "+total+" 票";
+function showDone(name,total){
+  voted=name;
+  try{localStorage.setItem("vote_done_2617_v5",name);}catch(e){}
+  $("vote").style.display="none";$("foot").style.display="none";$("done").style.display="block";
+  $("t2").textContent="你投给了："+name;
+  if(total!==null&&total!==undefined)$("total").textContent="已投 "+total+" 票";
 }
-async function countAll(){
-  try{
-    const r=await fetch("https://ntfy.sh/"+TOPIC+"/json?poll=1");
-    const t=await r.text();
-    let n=0;const seen={};
-    t.split("\n").forEach(l=>{if(!l.trim())return;try{const m=JSON.parse(l);if(m.event==="message"){const d=JSON.parse(m.message);seen[d.id]=d;}}catch(e){}});
-    return Object.keys(seen).length;
-  }catch(e){return null;}
+function showVote(){
+  voted=null;
+  try{localStorage.removeItem("vote_done_2617_v5");}catch(e){}
+  $("vote").style.display="block";$("foot").style.display="flex";$("done").style.display="none";
+  $("sel").textContent="请选择一个人";$("submit").disabled=true;$("submit").textContent="投票";sel=null;
+  render(cur);
 }
-document.getElementById("q").addEventListener("input",e=>{
-  const k=e.target.value.trim();
-  cur=k?all.filter(n=>n.indexOf(k)>=0):all.slice();render(cur);
+function refresh(){
+  if(!topic)return Promise.resolve();
+  return readVotes(topic).then(function(v){
+    $("total").textContent="已投 "+v.length+" 票";
+    var mine=v.filter(function(x){return x.id===me;})[0];
+    if(mine)showDone(mine.name,v.length);
+    return v;
+  }).catch(function(){});
+}
+function boot(){
+  Promise.all([
+    fetch("names.json?x="+Date.now()).then(function(r){return r.json();}).catch(function(){return [];}),
+    activeTopic()
+  ]).then(function(res){
+    all=(res[0]||[]).filter(function(x){return typeof x==="string"&&x.trim()&&x.trim()!=="undefined";}).map(function(x){return x.trim();});
+    cur=all.slice();render(cur);
+    topic=res[1];
+    if(!topic){toast("投票尚未开始");return;}
+    refresh();
+  });
+}
+$("q").addEventListener("input",function(e){
+  var k=e.target.value.trim();
+  cur=k?all.filter(function(n){return n.indexOf(k)>=0;}):all.slice();
+  render(cur);
 });
-grid.addEventListener("click",e=>{
-  const d=e.target.closest(".card");if(!d)return;
+grid.addEventListener("click",function(e){
+  var d=e.target.closest(".card");if(!d)return;
   sel=d.dataset.n;render(cur);
-  document.getElementById("sel").innerHTML="已选：<b>"+sel+"</b>";
-  document.getElementById("submit").disabled=false;
+  $("sel").innerHTML="已选：<b>"+sel+"</b>";
+  $("submit").disabled=false;
 });
-document.getElementById("submit").addEventListener("click",async()=>{
+$("submit").addEventListener("click",function(){
   if(!sel||voted)return;
   if(!confirm("确认投给 "+sel+" ？提交后不能修改"))return;
-  const b=document.getElementById("submit");b.disabled=true;b.textContent="提交中…";
-  try{
-    const payload=JSON.stringify({id:token,name:sel,ts:Date.now()});
-    const r=await fetch("https://ntfy.sh/"+TOPIC,{method:"POST",body:payload});
-    if(r.ok){const t=await countAll();finish(sel,t);}
-    else{toast("提交失败("+r.status+")，请重试");b.disabled=false;b.textContent="投票";}
-  }catch(e){toast("网络错误，请重试");b.disabled=false;b.textContent="投票";}
+  var b=$("submit");b.disabled=true;b.textContent="提交中…";
+  post(topic,{id:me,name:sel,ts:Date.now()}).then(function(r){
+    if(!r.ok)throw new Error(r.status);
+    return readVotes(topic);
+  }).then(function(v){
+    var mine=v.filter(function(x){return x.id===me;})[0];
+    showDone(sel,v.length);
+  }).catch(function(){toast("提交失败，请重试");b.disabled=false;b.textContent="投票";});
 });
-(async()=>{
-  try{all=await (await fetch("names.json")).json();}catch(e){all=[];toast("名单加载失败");}
-  if(!Array.isArray(all))all=[];
-  all=all.filter(function(x){return typeof x==="string"&&x.trim()!==""&&x.trim()!=="undefined"&&x.trim()!=="null";}).map(function(x){return x.trim();});
-  cur=all.slice();render(cur);
-  const m=localStorage.getItem("vote_done_2617_r4");
-  if(m){finish(m,null);}
-  const t=await countAll();
-  if(t!==null)document.getElementById("total").textContent="已投 "+t+" 票";
-})();
+setInterval(function(){
+  activeTopic().then(function(t){
+    if(t&&topic&&t!==topic){topic=t;toast("投票已重置，请重新投票");showVote();refresh();}
+    else if(t&&!topic){topic=t;showVote();refresh();}
+    else refresh();
+  }).catch(function(){});
+},15000);
+boot();
 </script>
 </body></html>
