@@ -43,9 +43,9 @@ footer{position:fixed;left:0;right:0;bottom:0;padding:12px 14px calc(12px + env(
 </footer>
 <div class="toast" id="toast"></div>
 <script>
-const TOPIC="2617ban-vote-9f3k";
-let token=localStorage.getItem("vote_token_2617");
-if(!token){token="t"+Date.now().toString(36)+Math.random().toString(36).slice(2,10);localStorage.setItem("vote_token_2617",token);}
+const TOPIC="2617vote-9155c17e47b1";
+let token=localStorage.getItem("vote_token_2617_r2");
+if(!token){token="t"+Date.now().toString(36)+Math.random().toString(36).slice(2,10);localStorage.setItem("vote_token_2617_r2",token);}
 let sel=null,cur=[],voted=null,all=[];
 const grid=document.getElementById("grid");
 function toast(t){const e=document.getElementById("toast");e.textContent=t;e.style.opacity=1;setTimeout(()=>e.style.opacity=0,1600);}
@@ -54,7 +54,7 @@ function render(list){
   [].forEach.call(grid.querySelectorAll(".card"),d=>{if(d.dataset.n===sel)d.classList.add("on");});
 }
 function finish(name,total){
-  voted=name;localStorage.setItem("vote_done_2617",name);
+  voted=name;localStorage.setItem("vote_done_2617_r2",name);
   document.getElementById("vote").style.display="none";
   document.getElementById("foot").style.display="none";
   document.getElementById("done").style.display="block";
@@ -94,7 +94,7 @@ document.getElementById("submit").addEventListener("click",async()=>{
 (async()=>{
   try{all=await (await fetch("names.json")).json();}catch(e){all=[];toast("名单加载失败");}
   cur=all.slice();render(cur);
-  const m=localStorage.getItem("vote_done_2617");
+  const m=localStorage.getItem("vote_done_2617_r2");
   if(m){finish(m,null);}
   const t=await countAll();
   if(t!==null)document.getElementById("total").textContent="已投 "+t+" 票";
