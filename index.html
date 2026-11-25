@@ -282,6 +282,8 @@ function checkCode(){
     if(hashes.indexOf(h)<0){setStatus("status","口令无效，请核对后重输","bad");return;}
     var used=votes.filter(function(x){return x.h===h;})[0];
     if(used){setStatus("status","这个口令已经用过了","bad");showDone(used.name,votes.length);return;}
+    var sameDev=votes.filter(function(x){return x.dv&&x.dv===myDv;})[0];
+    if(sameDev){setStatus("status","这台手机已经投过票了（投给 "+sameDev.name+"），不能重复投票","bad");return;}
     myHash=h;
     if(!all.length){loadNames().then(function(){if(all.length)enterStep1();else setStatus("status","名单加载失败，请刷新","bad");});return;}
     setStatus("status","口令有效 ✓","ok");
@@ -301,17 +303,15 @@ $("q2").addEventListener("input",function(e){
 });
 $("submit").addEventListener("click",function(){
   if(!myHash||!target)return;
-  var dup=0;
   var same=votes.filter(function(x){return x.dv&&x.dv===myDv;})[0];
   if(same){
-    var NL=String.fromCharCode(10);
-    var msg="这台手机之前已经投过一次票（投给 "+same.name+"）。"+NL+NL+"如果就是同一个人：请不要重复投票。"+NL+"如果是另一位同学用同一部手机：点‘确定’继续。";
-    if(!confirm(msg))return;
-    dup=1;
+    alert("这台手机已经投过票了（投给 "+same.name+"），不能重复投票。");
+    setStatus("status","这台手机已经投过票，不能重复投票","bad");
+    return;
   }
   if(!confirm("确认投给 "+target+" ？提交后不能修改"))return;
   var b=$("submit");b.disabled=true;b.textContent="提交中…";
-  post(topic,{h:myHash,name:target,ts:Date.now(),dv:myDv,dup:dup}).then(function(r){
+  post(topic,{h:myHash,name:target,ts:Date.now(),dv:myDv}).then(function(r){
     if(!r.ok)throw new Error(r.status);
     return refresh();
   }).then(function(v){showDone(target,v.length);})
