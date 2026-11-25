@@ -90,7 +90,10 @@ code{background:#f0f3f8;padding:1px 5px;border-radius:4px;font-size:12px}
     </div>
     <button class="act" id="saveNames">保存名单</button>
     <button class="act clear" id="resetNames">恢复默认 59 人</button>
-    <div class="mini" style="margin-top:8px">点姓名上的 ✕ 删除；保存后同学刷新投票页生效。</div>
+    <div id="undoBar" style="display:none;margin-top:10px;font-size:13px;color:#5b6b84">
+      <span id="undoTxt"></span><a href="#" id="undo" style="color:#2f6bff;margin-left:8px;text-decoration:none">撤销</a>
+    </div>
+    <div class="mini" style="margin-top:8px">点 ✕ 删除会先确认一次；保存后同学刷新投票页生效。</div>
   </div>
 
   <h2>导入数据</h2>
@@ -302,8 +305,23 @@ function renderNames(){
     return '<span class="chip">'+n+'<span class="x" data-i="'+i+'">✕</span></span>';
   }).join("")||'<span class="mini">名单为空</span>';
   [].forEach.call($("nameList").querySelectorAll(".x"),function(el){
-    el.onclick=function(){NAMES.splice(parseInt(el.dataset.i,10),1);renderNames();};
+    el.onclick=function(){
+      var i=parseInt(el.dataset.i,10),nm=NAMES[i];
+      if(!confirm("确定从名单里删除「"+nm+"」？"))return;
+      NAMES.splice(i,1);
+      LAST_DEL={name:nm,idx:i};
+      renderNames();
+      if($("undoBar")){$("undoBar").style.display="block";$("undoTxt").textContent="已删除「"+nm+"」";}
+    };
   });
+}
+var LAST_DEL=null;
+function undoDel(){
+  if(!LAST_DEL)return;
+  NAMES.splice(LAST_DEL.idx,0,LAST_DEL.name);
+  LAST_DEL=null;
+  if($("undoBar"))$("undoBar").style.display="none";
+  renderNames();
 }
 function addName(){
   var v=($("newName").value||"").replace(/^\s+|\s+$/g,"");
@@ -314,6 +332,7 @@ function addName(){
   renderNames();
 }
 $("addName").onclick=addName;
+$("undo").onclick=function(e){e.preventDefault();undoDel();};
 $("newName").addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();addName();}});
 $("saveNames").onclick=function(){
   if(!NAMES.length){alert("名单不能为空");return;}
