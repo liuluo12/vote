@@ -55,6 +55,13 @@ code{background:#f0f3f8;padding:1px 5px;border-radius:4px;font-size:12px}
 .fld{margin-top:10px;font-size:13px;color:#5b6b84}
 .tin{width:100%;border:1px solid #dfe6f1;border-radius:10px;padding:10px;font-size:14px;margin-top:6px;outline:none;background:#fff}
 .chip{position:relative;padding-right:20px}
+.nlist{max-height:270px;overflow:auto;border:1px solid #eef1f7;border-radius:12px;margin-top:10px;background:#fff}
+.nrow{display:flex;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid #f3f5f9;font-size:14px}
+.nrow:last-child{border-bottom:0}
+.nrow .idx{color:#9aa7bd;font-size:12px;width:30px;flex:none}
+.nrow .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nrow .del{color:#e5484d;font-weight:700;padding:4px 10px;cursor:pointer;flex:none}
+.nok{color:#93a1b7;font-size:13px;padding:14px;text-align:center}
 .chip .x{color:#e5484d;font-weight:700;margin-left:6px;cursor:pointer}
 .note{background:#fff;border-radius:12px;padding:12px 14px;font-size:13px;color:#5b6b84;line-height:1.7;box-shadow:0 1px 4px rgba(20,40,80,.06)}
 </style></head><body>
@@ -83,7 +90,8 @@ code{background:#f0f3f8;padding:1px 5px;border-radius:4px;font-size:12px}
 
   <h2>名单管理 <span class="mini" id="cnt"></span></h2>
   <div class="note">
-    <div class="chips" id="nameList"><span class="mini">加载中…</span></div>
+    <input class="tin" id="qName" placeholder="搜索姓名（输入即筛选）" style="margin-top:10px">
+    <div class="nlist" id="nameList"><span class="mini" style="padding:12px;display:block">加载中…</span></div>
     <div class="fld" style="display:flex;gap:8px;margin-top:12px">
       <input class="tin" id="newName" placeholder="输入姓名，回车或点添加" style="flex:1">
       <button class="act" id="addName" style="margin-top:0">添加</button>
@@ -300,11 +308,15 @@ function loadNamesAdmin(){
   }).catch(function(){NAMES=DEF_NAMES.slice();renderNames();return NAMES;});
 }
 function renderNames(){
+  var q=($("qName")?$("qName").value:"").replace(/^\s+|\s+$/g,"");
   $("cnt").textContent="（"+NAMES.length+" 人）";
-  $("nameList").innerHTML=NAMES.map(function(n,i){
-    return '<span class="chip">'+n+'<span class="x" data-i="'+i+'">✕</span></span>';
-  }).join("")||'<span class="mini">名单为空</span>';
-  [].forEach.call($("nameList").querySelectorAll(".x"),function(el){
+  var rows=[];
+  for(var i=0;i<NAMES.length;i++){
+    if(q&&NAMES[i].indexOf(q)<0)continue;
+    rows.push('<div class="nrow"><span class="idx">'+(i+1)+'</span><span class="nm">'+NAMES[i]+'</span><span class="del" data-i="'+i+'">删除</span></div>');
+  }
+  $("nameList").innerHTML=rows.length?rows.join(""):'<div class="nok">'+(q?("没有匹配「"+q+"」的姓名"):"名单为空")+'</div>';
+  [].forEach.call($("nameList").querySelectorAll(".del"),function(el){
     el.onclick=function(){
       var i=parseInt(el.dataset.i,10),nm=NAMES[i];
       if(!confirm("确定从名单里删除「"+nm+"」？"))return;
@@ -333,6 +345,7 @@ function addName(){
 }
 $("addName").onclick=addName;
 $("undo").onclick=function(e){e.preventDefault();undoDel();};
+$("qName").addEventListener("input",function(){renderNames();});
 $("newName").addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();addName();}});
 $("saveNames").onclick=function(){
   if(!NAMES.length){alert("名单不能为空");return;}
