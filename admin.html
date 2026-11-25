@@ -48,6 +48,10 @@ a.dl{color:#2f6bff;font-size:13px;margin-left:10px;text-decoration:none}
 header{background:linear-gradient(135deg,#1e2a3a,#2f6bff)}
 main{padding:16px}
 h2{font-size:15px;margin:20px 0 8px;color:#5b6b84}
+code{background:#f0f3f8;padding:1px 5px;border-radius:4px;font-size:12px}
+.hrow{display:flex;justify-content:space-between;font-size:14px;padding:7px 0;border-bottom:1px solid #f0f3f8}
+.hrow:last-child{border-bottom:0}
+.mini{font-size:12px;color:#93a1b7}
 .note{background:#fff;border-radius:12px;padding:12px 14px;font-size:13px;color:#5b6b84;line-height:1.7;box-shadow:0 1px 4px rgba(20,40,80,.06)}
 </style></head><body>
 <header>
@@ -64,27 +68,49 @@ h2{font-size:15px;margin:20px 0 8px;color:#5b6b84}
   <button class="act" id="reload">手动刷新</button>
   <a class="dl" id="dl" download="2617票数.csv">导出 CSV</a>
   <button class="act clear" id="clear">清空投票数据</button>
+
+  <h2>数据导入</h2>
+  <div class="note">
+    <div style="line-height:1.9;font-size:13px">
+      <b>① 投票记录</b>：每行 <code>姓名,票数</code>，票数可省略（默认 1）<br>
+      <b>② 名单</b>：每行一个姓名（或 CSV 第一列），导入后同学刷新页面生效<br>
+      <b>③ 历史结果</b>：粘贴之前导出的 CSV，用于和本轮对比
+    </div>
+    <textarea id="imp" placeholder="在这里粘贴内容，然后点下面某个按钮" style="width:100%;height:110px;margin-top:10px;border:1px solid #dfe6f1;border-radius:10px;padding:10px;font-size:13px"></textarea>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+      <button class="act" id="impVote">① 导入投票记录</button>
+      <button class="act" id="impNames">② 导入名单</button>
+      <button class="act" id="impHist">③ 导入历史结果</button>
+      <button class="act clear" id="clrHist">清空历史对比</button>
+    </div>
+  </div>
+
+  <h2>历史对比</h2>
+  <div class="rows" id="hist"><div class="empty">还没有导入历史数据</div></div>
 </main>
 <script>
 var BASE="2617vote-", CTL="2617vote-ctl";
 
-function activeTopic(){
+function ctlLatest(){
   return fetch("https://ntfy.sh/"+CTL+"/json?poll=1&since=all&x="+Date.now(),{cache:"no-store"})
     .then(function(r){return r.text();})
     .then(function(t){
-      var last=null;
+      var out={reset:null,names:null};
       t.split("\n").forEach(function(l){
         if(!l.trim())return;
         try{
           var m=JSON.parse(l);
-          if(m.event==="message"&&m.message){
-            var d=JSON.parse(m.message);
-            if(d.event==="reset"&&m.id)last=m.id;
-          }
+          if(m.event!=="message"||!m.message)return;
+          var d=JSON.parse(m.message);
+          if(d.event==="reset"&&m.id)out.reset=m.id;
+          if(d.event==="names"&&Array.isArray(d.list)&&d.list.length)out.names=d.list;
         }catch(e){}
       });
-      return last?(BASE+last):null;
+      return out;
     });
+}
+function activeTopic(){
+  return ctlLatest().then(function(i){return i.reset?(BASE+i.reset):null;});
 }
 function readVotes(topic){
   return fetch("https://ntfy.sh/"+topic+"/json?poll=1&since=all&x="+Date.now(),{cache:"no-store"})
@@ -137,7 +163,8 @@ function render(v){
   $("note").innerHTML="已使用口令 <b>"+total+"</b> 个，还剩 <b>"+(totalCodes-total>0?totalCodes-total:0)+"</b> 个未使用。<br>匿名投票：系统只记录口令，<b>不记录谁投了谁</b>，所以看不到“谁还没投”。<br>"+dupHtml;
   var last=v.slice().sort(function(a,b){return b.ts-a.ts;})[0];
   $("meta").textContent=(last?("最近一票："+new Date(last.ts).toLocaleString("zh-CN")+" · 投给 "+last.name):"等待第一票…")+"　|　轮次："+topic;
-  $("dl").href="data:text/csv;charset=utf-8,"+encodeURIComponent("姓名,票数\n"+items.map(function(x){return x[0]+","+x[1];}).join("\n")+"\n\n已用口令,"+total+"\n剩余口令,"+(totalCodes-total));
+  renderHist(counts);
+  $("dl").href="data:text/csv;charset=utf-8,"+encodeURIComponent("姓名,票数\\n"+items.map(function(x){return x[0]+","+x[1];}).join("\\n")+"\\n\\n已用口令,"+total+"\\n剩余口令,"+(totalCodes-total));
 }
 function load(){
   activeTopic().then(function(t){
@@ -147,6 +174,101 @@ function load(){
   }).then(function(v){if(v)render(v);})
    .catch(function(){$("rows").innerHTML='<div class="empty">加载失败，稍后自动重试</div>';});
 }
+function parseRows(text){
+  var rows=[];
+  String(text||"").split(/\r?\n/).forEach(function(line){
+    line=line.replace(/^\s+|\s+$/g,"");
+    if(!line)return;
+    var parts=line.split(/[,\t]/).map(function(x){return x.replace(/^\s+|\s+$/g,"");});
+    if(parts[0])rows.push(parts);
+  });
+  return rows;
+}
+function importVotes(){
+  var rows=parseRows($("imp").value);
+  if(!rows.length){alert("粘贴内容为空");return;}
+  var tasks=[];
+  rows.forEach(function(p){
+    var name=p[0];
+    if(!name||/^姓名$/.test(name))return;
+    var cnt=parseInt(p[1]||"1",10);
+    if(!(cnt>0))cnt=1;
+    if(cnt>500)cnt=500;
+    for(var k=0;k<cnt;k++)tasks.push(name);
+  });
+  if(!tasks.length){alert("没解析到有效数据");return;}
+  if(!topic){alert("当前没有投票轮次");return;}
+  if(!confirm("将导入 "+tasks.length+" 票到当前轮次，确定吗？"))return;
+  var i=0,fail=0;
+  function next(){
+    if(i>=tasks.length){
+      alert("导入完成："+(tasks.length-fail)+" 票成功"+(fail?("，"+fail+" 票失败"):""));
+      $("imp").value="";
+      load();
+      return;
+    }
+    var nm=tasks[i++];
+    post(topic,{h:"imp"+Date.now().toString(36)+Math.random().toString(36).slice(2,8),name:nm,ts:Date.now(),dv:"",imp:1})
+      .then(function(r){if(!r.ok)fail++;next();})
+      .catch(function(){fail++;next();});
+  }
+  next();
+}
+function importNames(){
+  var rows=parseRows($("imp").value);
+  var list=rows.map(function(p){return p[0];}).filter(function(x){return x&&!/^姓名$/.test(x);});
+  if(!list.length){alert("没解析到姓名");return;}
+  if(!confirm("导入 "+list.length+" 个姓名作为候选名单？\n同学刷新投票页后生效。"))return;
+  post(CTL,{event:"names",list:list,ts:Date.now()}).then(function(r){
+    if(!r.ok)throw new Error(r.status);
+    alert("已导入 "+list.length+" 个姓名。\n让同学刷新投票页即可看到新名单。");
+    $("imp").value="";
+  }).catch(function(e){alert("导入失败："+e.message);});
+}
+function histKey(){return "hist_2617_v1";}
+function getHist(){try{return JSON.parse(localStorage.getItem(histKey())||"[]");}catch(e){return [];}}
+function importHistory(){
+  var rows=parseRows($("imp").value);
+  var data=[];
+  rows.forEach(function(p){
+    if(!p[0]||/^姓名$/.test(p[0]))return;
+    var n=parseInt(p[1]||"0",10);
+    if(isNaN(n))return;
+    data.push([p[0],n]);
+  });
+  if(!data.length){alert("没解析到 姓名,票数 数据");return;}
+  var h=getHist();
+  h.unshift({ts:Date.now(),label:new Date().toLocaleString("zh-CN"),rows:data});
+  h=h.slice(0,5);
+  try{localStorage.setItem(histKey(),JSON.stringify(h));}catch(e){}
+  $("imp").value="";
+  alert("已导入历史结果："+data.length+" 人");
+  load();
+}
+function renderHist(counts){
+  var h=getHist(),box=$("hist");
+  if(!h.length){box.innerHTML='<div class="empty">还没有导入历史数据</div>';return;}
+  var latest=h[0],map={};
+  latest.rows.forEach(function(r){map[r[0]]=r[1];});
+  var names={};
+  Object.keys(map).forEach(function(k){names[k]=1;});
+  Object.keys(counts||{}).forEach(function(k){names[k]=1;});
+  var list=Object.keys(names).sort(function(a,b){return (map[b]||0)-(map[a]||0);});
+  box.innerHTML='<div class="mini" style="padding:6px 0">历史批次：'+latest.label+'（共 '+latest.rows.reduce(function(a,b){return a+b[1];},0)+' 票）</div>'+
+    list.map(function(n){
+      var old=map[n]||0,cur=(counts&&counts[n])||0,d=cur-old;
+      var color=d>0?"#00a878":(d<0?"#e5484d":"#93a1b7");
+      return '<div class="hrow"><span>'+n+'</span><span class="mini">历史 '+old+' ｜ 本轮 '+cur+' ｜ <b style="color:'+color+'">'+(d>0?"+":"")+d+'</b></span></div>';
+    }).join("");
+}
+$("impVote").onclick=importVotes;
+$("impNames").onclick=importNames;
+$("impHist").onclick=importHistory;
+$("clrHist").onclick=function(){
+  if(!confirm("清空本机保存的历史对比数据？"))return;
+  try{localStorage.removeItem(histKey());}catch(e){}
+  load();
+};
 $("reload").onclick=load;
 $("clear").onclick=function(){
   var b=this;
@@ -155,7 +277,7 @@ $("clear").onclick=function(){
   b.disabled=true;b.textContent="清空中…";
   post(CTL,{event:"reset",ts:Date.now()}).then(function(r){
     if(!r.ok)throw new Error(r.status);return activeTopic();
-  }).then(function(t){topic=t;alert("已清空！投票页 15 秒内自动切到新一轮。\n新轮次："+t);load();})
+  }).then(function(t){topic=t;alert("已清空！投票页 15 秒内自动切到新一轮。\\n新轮次："+t);load();})
    .catch(function(e){alert("清空失败："+e.message);})
    .then(function(){b.disabled=false;b.textContent="清空投票数据";});
 };
