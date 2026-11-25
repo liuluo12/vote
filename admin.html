@@ -99,6 +99,20 @@ h2{font-size:15px;margin:20px 0 8px;color:#5b6b84}
     </div>
   </div>
 
+  <h2>云端备份（长期保存）</h2>
+  <div class="note">
+    <div>手机浏览器只能存一部分；把票备份成仓库文件后，<b>超过 12 小时也不会丢</b>。</div>
+    <div class="fld">GitHub token（只在你这台手机上保存，页面里没有）
+      <input class="tin" id="tok" placeholder="粘贴 ghp_ 开头的 token，保存一次即可">
+    </div>
+    <div class="hd">
+      <button class="act" id="saveTok">保存密钥</button>
+      <button class="act" id="backupNow">立即备份</button>
+      <button class="act" id="restoreBk">从仓库恢复</button>
+    </div>
+    <div class="mini" id="tokState" style="margin-top:8px"></div>
+  </div>
+
   <h2>导入 / 导出</h2>
   <div class="note">
     <textarea id="imp" placeholder="①投票记录：每行 姓名,票数  ③历史结果：粘贴导出的 CSV" style="width:100%;height:100px;border:1px solid #dfe6f1;border-radius:10px;padding:10px;font-size:13px"></textarea>
@@ -120,12 +134,12 @@ h2{font-size:15px;margin:20px 0 8px;color:#5b6b84}
   <div class="meta" id="meta"></div>
 </main>
 <script>var TOPIC="2617vote-2617";
-function fetchAll(){
+var BACKUP_FILE="votes.json";
+function fetchCloud(){
   return fetch("https://ntfy.sh/"+TOPIC+"/json?poll=1&since=all&x="+Date.now(),{cache:"no-store"})
     .then(function(r){return r.text();})
     .then(function(t){
-      var out={resetTs:0,votes:[],names:null,title:"",sub:""};
-      var seen={};
+      var out={resetTs:0,votes:[],names:null,title:"",sub:""},seen={};
       t.split("\n").forEach(function(l){
         if(!l.trim())return;
         var m,d;
@@ -133,9 +147,9 @@ function fetchAll(){
         if(m.event!=="message"||!m.message)return;
         try{d=JSON.parse(m.message);}catch(e){return;}
         if(!d||typeof d!=="object")return;
-        if(d.event==="reset"){ out.resetTs=Math.max(out.resetTs, d.ts||0); return; }
+        if(d.event==="reset"){out.resetTs=Math.max(out.resetTs,d.ts||0);return;}
         if(d.event==="names"&&Array.isArray(d.list)&&d.list.length)out.names=d.list;
-        if(d.event==="config"){ if(typeof d.title==="string")out.title=d.title; if(typeof d.sub==="string")out.sub=d.sub; }
+        if(d.event==="config"){if(typeof d.title==="string")out.title=d.title;if(typeof d.sub==="string")out.sub=d.sub;}
       });
       t.split("\n").forEach(function(l){
         if(!l.trim())return;
@@ -143,26 +157,47 @@ function fetchAll(){
         try{m=JSON.parse(l);}catch(e){return;}
         if(m.event!=="message"||!m.message)return;
         try{d=JSON.parse(m.message);}catch(e){return;}
-        if(!d||typeof d!=="object")return;
-        if(!d.h||!d.name||d.name==="undefined")return;
-        var ts=d.ts||m.time*1000;
-        if(ts<=out.resetTs)return;
+        if(!d||typeof d!=="object"||!d.h||!d.name)return;
         if(seen[d.h])return;
         seen[d.h]=1;
-        out.votes.push({h:d.h,name:d.name,ts:ts,dv:d.dv||"",md:d.md||"",imp:d.imp||0});
+        out.votes.push({h:d.h,name:d.name,ts:d.ts||m.time*1000,dv:d.dv||"",md:d.md||"",imp:d.imp||0});
       });
       return out;
-    });
+    })
+    .catch(function(){return {resetTs:0,votes:[],names:null,title:"",sub:""};});
 }
-function activeTopic(){return Promise.resolve(TOPIC);}
-function readVotes(){
-  return fetchAll().then(function(a){return a.votes;}).catch(function(){return [];});
+function fetchBackup(){
+  return fetch(BACKUP_FILE+"?x="+Date.now(),{cache:"no-store"})
+    .then(function(r){return r.ok?r.json():null;})
+    .catch(function(){return null;});
+}
+function effective(){
+  return Promise.all([fetchBackup(),fetchCloud()]).then(function(res){
+    var bk=res[0]||{},cloud=res[1]||{};
+    var round=Math.max(bk.round||0,cloud.resetTs||0);
+    var map={},order=[];
+    function add(v){
+      if(!v||!v.h||!v.name)return;
+      if((v.ts||0)<=round)return;
+      if(map[v.h])return;
+      map[v.h]=1;order.push({h:v.h,name:v.name,ts:v.ts||0,dv:v.dv||"",md:v.md||"",imp:v.imp||0});
+    }
+    if(bk.votes){for(var k in bk.votes){var b=bk.votes[k];add({h:k,name:b.name,ts:b.ts,dv:b.dv,md:b.md,imp:b.imp});}}
+    (cloud.votes||[]).forEach(add);
+    return {
+      round:String(round),
+      votes:order,
+      names:(cloud.names&&cloud.names.length?cloud.names:(bk.names&&bk.names.length?bk.names:null)),
+      title:(cloud.title||bk.title||""),
+      sub:(cloud.sub||bk.sub||"")
+    };
+  }).catch(function(){return {round:"0",votes:[],names:null,title:"",sub:""};});
 }
 function loadState(){
-  return fetchAll().then(function(a){
-    return {round:String(a.resetTs||0), title:a.title, sub:a.sub, names:a.names};
-  }).catch(function(){return null;});
+  return effective().then(function(e){return {round:e.round,title:e.title,sub:e.sub,names:e.names};});
 }
+function readVotes(){return effective().then(function(e){return e.votes;});}
+function activeTopic(){return Promise.resolve(TOPIC);}
 function topicFromState(){return TOPIC;}
 function post(a,b){
   var body=b||a;
@@ -323,6 +358,47 @@ function renderHist(counts){
     return '<div class="hrow"><span>'+n+'</span><span class="mini">历史 '+o+' ｜ 本轮 '+c+' ｜ <b style="color:'+col+'">'+(d>0?"+":"")+d+'</b></span></div>';
   }).join("");
 }
+var TOK_KEY="gh_tok_2617";
+function ghTok(){try{return localStorage.getItem(TOK_KEY)||"";}catch(e){return "";}}
+function tokStateUI(){
+  var el=$("tokState"),has=!!ghTok();
+  if(el){el.textContent=has?"已保存密钥 ✓（可备份）":"未保存密钥（不影响投票，只影响长期备份）";el.style.color=has?"#00a878":"#e5484d";}
+}
+function ghPut(path,obj){
+  var tok=ghTok();
+  if(!tok)return Promise.reject(new Error("没有密钥"));
+  var url="https://api.github.com/repos/liuluo12/vote/contents/"+path;
+  var h={"Authorization":"Bearer "+tok,"Accept":"application/vnd.github+json"};
+  return fetch(url,{headers:h}).then(function(r){return r.ok?r.json():{};}).then(function(cur){
+    var body={message:"backup votes",content:btoa(unescape(encodeURIComponent(JSON.stringify(obj,null,1))))};
+    if(cur&&cur.sha)body.sha=cur.sha;
+    return fetch(url,{method:"PUT",headers:Object.assign({"Content-Type":"application/json"},h),body:JSON.stringify(body)});
+  }).then(function(r){if(!r.ok)throw new Error("HTTP "+r.status);return true;});
+}
+function doBackup(silent){
+  if(!ghTok()){if(!silent)alert("先保存密钥");return Promise.resolve(false);}
+  var cnt=0;
+  return effective().then(function(e){
+    var obj={round:Number(e.round)||0,title:e.title,sub:e.sub,names:e.names||[],votes:{},updated:Date.now()};
+    e.votes.forEach(function(v){obj.votes[v.h]={name:v.name,ts:v.ts,md:v.md,imp:v.imp};cnt++;});
+    return ghPut(BACKUP_FILE,obj);
+  }).then(function(ok){
+    if(!silent)alert("已备份 "+cnt+" 票到仓库（长期保存）");
+    load();return ok;
+  }).catch(function(err){if(!silent)alert("备份失败："+err.message);return false;});
+}
+$("saveTok").onclick=function(){
+  var v=($("tok").value||"").trim();
+  if(!v){alert("请粘贴 token");return;}
+  try{localStorage.setItem(TOK_KEY,v);}catch(e){}
+  $("tok").value="";tokStateUI();
+  alert("密钥已保存到本机。之后打开后台会自动备份。");
+};
+$("backupNow").onclick=function(){
+  var b=this;b.disabled=true;b.textContent="备份中…";
+  doBackup(false).then(function(){b.disabled=false;b.textContent="立即备份";});
+};
+$("restoreBk").onclick=function(){ alert("已重新拉取仓库备份并刷新"); load(); };
 $("saveCfg").onclick=function(){
   var b=this;b.disabled=true;b.textContent="保存中…";
   post({event:"config",title:($("ttl").value||"").trim(),sub:($("sub").value||"").trim(),ts:Date.now()}).then(function(r){
@@ -347,6 +423,7 @@ $("clear").onclick=function(){
     if(!r.ok)throw new Error(r.status);
     try{localStorage.removeItem(arcKey());}catch(e){}
     alert("已清空，同学刷新页面即可重新投票。");
+    if(ghTok())doBackup(true);
     load();
   }).catch(function(e){alert("清空失败："+e.message);}).then(function(){b.disabled=false;b.textContent="清空投票数据";});
 };
@@ -363,7 +440,7 @@ $("resetNames").onclick=function(){
   if(!confirm("恢复默认 "+DEF_NAMES.length+" 人名单？"))return;
   NAMES=DEF_NAMES.slice();renderNames();
 };
-loadAdmin().then(load);
+loadAdmin().then(function(){return load();}).then(function(){tokStateUI();if(ghTok())doBackup(true);});
 setInterval(load,15000);
 </script>
 </body></html>
