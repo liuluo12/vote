@@ -64,7 +64,7 @@ h2{font-size:15px;margin:20px 0 8px;color:#5b6b84}
 </style></head><body>
 <header>
   <h1>2617班 · 票数后台</h1>
-  <div class="sub">每 15 秒自动刷新</div>
+  <div class="sub">每 4 秒自动刷新</div>
   <div><span class="pill" id="total">已投 0 票</span><span class="pill" id="left">剩余口令 59</span><span class="pill" id="dev">0 台设备</span></div>
 </header>
 <main>
@@ -226,7 +226,7 @@ function byName(votes){
   return c;
 }
 
-var NAMES=[],DEF_NAMES=[],LAST_DEL=null,topic="",all=null;
+var NAMES=[],DEF_NAMES=[],LAST_DEL=null,topic="",all=null,_busy=false;
 var ARC_PREFIX="arc_2617_",CUR_ROUND="0";
 function arcKey(){return ARC_PREFIX+CUR_ROUND;}
 function getArc(){try{return JSON.parse(localStorage.getItem(arcKey())||"{}");}catch(e){return {};}}
@@ -511,6 +511,6 @@ function loadCodesAdmin(st){
   renderCodes();
 }
 loadAdmin().then(function(){return load();}).then(function(){tokStateUI();if(ghTok())doBackup(true);});
-setInterval(load,15000);
+setInterval(function(){if(_busy)return;_busy=true;load().then(function(){_busy=false;});},4000);
 </script>
 </body></html>
