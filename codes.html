@@ -209,7 +209,7 @@ function render(){
     el.onclick=function(){claim(el,el.dataset.c);};
   });
   $("left").textContent=free.length;
-  $("meta").textContent="共 59 个口令，已用 "+(59-left)+" 个 ｜ 每 8 秒自动刷新 ｜ 轮次 "+topic;
+  $("meta").textContent="共 59 个口令，已用 "+(59-left)+" 个 ｜ 每 3 秒自动刷新 ｜ 轮次 "+topic;
 }
 function refresh(){
   if(!topic)return Promise.resolve();
@@ -226,14 +226,16 @@ function boot(){
     if(st&&st.codes&&st.codes.length){CODES=st.codes.slice();render();}
     try{if(st&&st.title)$("wtl").textContent=st.title+" · 口令墙";}catch(e){}
     refresh();
+    var _busy=false;
     setInterval(function(){
+      if(_busy)return;_busy=true;
       loadState().then(function(st2){
         var t2=topicFromState(st2);
         if(t2!==topic){topic=t2;}
         if(st2&&st2.codes&&st2.codes.length&&st2.codes.join()!==CODES.join()){CODES=st2.codes.slice();render();}
         refresh();
-      }).catch(function(){});
-    },8000);
+      }).catch(function(){}).then(function(){_busy=false;});
+    },3000);
   }).catch(function(){$("pool").innerHTML='<div class="note">加载失败，请刷新页面</div>';});
 }
 try{boot();}catch(e){$("pool").innerHTML='<div class="note">初始化失败：'+e.message+'</div>';}
