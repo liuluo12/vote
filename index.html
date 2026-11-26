@@ -381,7 +381,9 @@ $("submit").addEventListener("click",function(){
   }).then(function(v){showDone(target,v.length);})
    .catch(function(e){toast("提交失败："+(e&&e.message?e.message:""));b.disabled=false;b.textContent="投票";});
 });
+var _busy=false;
 setInterval(function(){
+  if(_busy)return;_busy=true;
   loadState().then(function(st){
     var k=(st&&st.round)?st.round:"0";
     if(k!==roundKey){
@@ -392,8 +394,8 @@ setInterval(function(){
       $("foot").style.display="none";$("code").value="";setStatus("status","");
     }
     refresh();
-  }).catch(function(){});
-},15000);
+  }).catch(function(){}).then(function(){_busy=false;});
+},5000);
 try{boot();}catch(e){setStatus("status","页面初始化失败："+(e&&e.message?e.message:e),"bad");}
 </script>
 </body></html>
