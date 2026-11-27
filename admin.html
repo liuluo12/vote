@@ -226,6 +226,48 @@ function byName(votes){
   return c;
 }
 
+function sha256hex(ascii){
+  function rightRotate(v,a){return (v>>>a)|(v<<(32-a));}
+  var mathPow=Math.pow,maxWord=mathPow(2,32),result="",words=[],asciiBitLength=ascii.length*8;
+  var hash=sha256hex.h=sha256hex.h||[],k=sha256hex.k=sha256hex.k||[],primeCounter=k.length,isComposite={};
+  for(var candidate=2;primeCounter<64;candidate++){
+    if(!isComposite[candidate]){
+      for(var i=0;i<313;i+=candidate){isComposite[i]=candidate;}
+      hash[primeCounter]=(mathPow(candidate,.5)*maxWord)|0;
+      k[primeCounter++]=(mathPow(candidate,1/3)*maxWord)|0;
+    }
+  }
+  ascii+="\x80";
+  while(ascii.length%64-56)ascii+="\x00";
+  for(i=0;i<ascii.length;i++){
+    var j=ascii.charCodeAt(i);
+    if(j>>8)return;
+    words[i>>2]|=j<<((3-i)%4)*8;
+  }
+  words[words.length]=(asciiBitLength/maxWord)|0;
+  words[words.length]=asciiBitLength;
+  for(j=0;j<words.length;){
+    var w=words.slice(j,j+=16),oldHash=hash;
+    hash=hash.slice(0,8);
+    for(i=0;i<64;i++){
+      var w15=w[i-15],w2=w[i-2];
+      var a=hash[0],e=hash[4];
+      var temp1=hash[7]+(rightRotate(e,6)^rightRotate(e,11)^rightRotate(e,25))+((e&hash[5])^((~e)&hash[6]))+k[i]
+        +(w[i]=(i<16)?w[i]:(w[i-16]+(rightRotate(w15,7)^rightRotate(w15,18)^(w15>>>3))+w[i-7]+(rightRotate(w2,17)^rightRotate(w2,19)^(w2>>>10)))|0);
+      var temp2=(rightRotate(a,2)^rightRotate(a,13)^rightRotate(a,22))+((a&hash[1])^(a&hash[2])^(hash[1]&hash[2]));
+      hash=[(temp1+temp2)|0].concat(hash);
+      hash[4]=(hash[4]+temp1)|0;
+    }
+    for(i=0;i<8;i++)hash[i]=(hash[i]+oldHash[i])|0;
+  }
+  for(i=0;i<8;i++){
+    for(var j2=3;j2+1;j2--){
+      var b=(hash[i]>>(j2*8))&255;
+      result+=((b<16)?"0":"")+b.toString(16);
+    }
+  }
+  return result;
+}
 var NAMES=[],DEF_NAMES=[],LAST_DEL=null,topic="",all=null,_busy=false;
 var ARC_PREFIX="arc_2617_",CUR_ROUND="0";
 function arcKey(){return ARC_PREFIX+CUR_ROUND;}
@@ -338,15 +380,32 @@ function importVotes(){
     for(var k=0;k<n;k++)tasks.push(p[0]);
   });
   if(!tasks.length){alert("没解析到数据");return;}
-  if(!confirm("导入 "+tasks.length+" 票到当前轮次？"))return;
-  var i=0,fail=0;
-  function next(){
-    if(i>=tasks.length){alert("导入完成："+(tasks.length-fail)+" 票成功");$("imp").value="";load();return;}
-    var nm=tasks[i++];
-    post({h:"imp"+Date.now().toString(36)+Math.random().toString(36).slice(2,8),name:nm,ts:Date.now(),imp:1})
-      .then(function(r){if(!r.ok)fail++;next();}).catch(function(){fail++;next();});
-  }
-  next();
+  if(!confirm("导入 "+tasks.length+" 票？每票会自动扣掉一个未使用的口令，口令墙同步减少。"))return;
+  effective().then(function(e){
+    var used={};
+    (e.votes||[]).forEach(function(v){used[v.h]=1;});
+    var avail=[];
+    CODES.forEach(function(c){
+      var h=sha256hex(String(c).toUpperCase());
+      if(!used[h])avail.push(h);
+    });
+    var i=0,fail=0,nocode=0;
+    function next(){
+      if(i>=tasks.length){
+        alert("导入完成："+(tasks.length-fail-nocode)+" 票成功并扣掉口令"+(nocode?("；"+nocode+" 票口令不足未扣"):"")+(fail?("；失败 "+fail+" 票"):""));
+        $("imp").value="";
+        load();
+        return;
+      }
+      var nm=tasks[i++];
+      var h=avail.shift();
+      if(!h)nocode++;
+      post({h:(h||("imp"+Date.now().toString(36)+Math.random().toString(36).slice(2,8))),name:nm,ts:Date.now(),imp:1})
+        .then(function(r){if(!r.ok)fail++;next();})
+        .catch(function(){fail++;next();});
+    }
+    next();
+  }).catch(function(err){alert("导入失败："+err.message);});
 }
 function histKey(){return "hist_2617_v1";}
 function getHist(){try{return JSON.parse(localStorage.getItem(histKey())||"[]");}catch(e){return [];}}
